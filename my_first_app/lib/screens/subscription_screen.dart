@@ -285,6 +285,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     },
                   ),
                   
+                  
                   // Разделитель
                   Divider(height: 24, thickness: 1),
                   
