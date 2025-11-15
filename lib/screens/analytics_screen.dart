@@ -84,7 +84,6 @@ class AnalyticsScreenState extends State<AnalyticsScreen> {
 
 
 
-
   void _navigateToCategoryDetail(String categoryName) {
     Navigator.push(
       context,
@@ -104,36 +103,43 @@ class AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Color.fromARGB(248, 223, 218, 245),
+      appBar: AppBar(
+        title: Text('Аналитика'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             children: [
               // Верхняя панель
-              Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF9C27B0), Color(0xFFE1BEE7)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
-                ),
-                child: const Center(
-                  child: Text(
-                    'Аналитика',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+              // Container(
+              //   width: double.infinity,
+              //   height: 120,
+              //   decoration: BoxDecoration(
+              //     gradient: const LinearGradient(
+              //       colors: [Color(0xFF9C27B0), Color(0xFFE1BEE7)],
+              //       begin: Alignment.topLeft,
+              //       end: Alignment.bottomRight,
+              //     ),
+              //     borderRadius: const BorderRadius.only(
+              //       bottomLeft: Radius.circular(20),
+              //       bottomRight: Radius.circular(20),
+              //     ),
+              //   ),
+              //   child: const Center(
+              //     child: Text(
+              //       'Аналитика',
+              //       style: TextStyle(
+              //         color: Colors.white,
+              //         fontSize: 28,
+              //         fontWeight: FontWeight.bold,
+              //       ),
+              //     ),
+              //   ),
+              // ),
 
               const SizedBox(height: 20),
 
