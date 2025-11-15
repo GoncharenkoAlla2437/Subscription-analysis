@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'archive_screen.dart';
 
 // class ProfileScreen extends StatelessWidget {
 //   const ProfileScreen({Key? key}) : super(key: key);
@@ -269,7 +270,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-        onTap: _showArchiveMessage,
+        onTap: () {
+          Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => ArchiveScreen()),
+          );
+        }
       ),
     );
   }
