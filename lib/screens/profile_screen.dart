@@ -62,14 +62,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showArchiveMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Архив подписок - скоро будет доступен!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
 
   // Функция для выбора аватарки (заглушка)
   void _changeAvatar() {

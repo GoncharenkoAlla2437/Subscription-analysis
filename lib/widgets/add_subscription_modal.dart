@@ -61,174 +61,182 @@ class _AddSubscriptionModalState extends State<AddSubscriptionModal> { // при
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.all(24),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Заголовок
-              Center(
-                child: Text(
-                  'Добавить подписку',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              SizedBox(height: 24),
-              
-              // Поле "Название"
-              Text(
-                'Название',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 8),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: 'Введите название подписки',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Пожалуйста, введите название';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-              
-              // Поле "Стоимость"
-              Text(
-                'Стоимость',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 8),
-              TextFormField(
-                controller: _amountController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  hintText: 'Введите стоимость',
-                  border: OutlineInputBorder(),
-                  suffixText: 'руб.',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Пожалуйста, введите стоимость';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Пожалуйста, введите число';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-              
-              // Поле "Дата оплаты"
-              Text(
-                'Дата оплаты',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 8),
-              TextFormField(
-                controller: _dateController,
-                readOnly: true,
-                onTap: _selectDate,
-                decoration: InputDecoration(
-                  hintText: 'Выберите дату',
-                  border: OutlineInputBorder(),
-                  suffixIcon: Icon(Icons.calendar_today),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Пожалуйста, выберите дату';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 16),
-              
-              // Чекбокс "Пробная подписка"
-              Row(
-                children: [
-                  Checkbox(
-                    value: _isTrial,
-                    onChanged: (bool? value) {
-                      setState(() {
-                        _isTrial = value ?? false;
-                      });
-                    },
-                  ),
-                  Text('Пробная подписка'),
-                ],
-              ),
-              SizedBox(height: 16),
-              
-              // Поле "Оповестить за ___ дней"
-              Text(
-                'Оповестить за',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: 8),
-              TextFormField(
-                controller: _daysController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  hintText: 'Количество дней',
-                  border: OutlineInputBorder(),
-                  suffixText: 'дней',
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Пожалуйста, введите количество дней';
-                  }
-                  if (int.tryParse(value) == null) {
-                    return 'Пожалуйста, введите число';
-                  }
-                  return null;
-                },
-              ),
-              SizedBox(height: 32),
-              
-              // Кнопка "Добавить подписку"
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _addSubscription,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Заголовок
+                Center(
                   child: Text(
                     'Добавить подписку',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
                     ),
                   ),
                 ),
-              ),
-            ],
+                SizedBox(height: 24),
+                
+                // Поле "Название"
+                Text(
+                  'Название',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(
+                    hintText: 'Введите название подписки',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Пожалуйста, введите название';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 16),
+                
+                // Поле "Стоимость"
+                Text(
+                  'Стоимость',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextFormField(
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: 'Введите стоимость',
+                    border: OutlineInputBorder(),
+                    suffixText: 'руб.',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Пожалуйста, введите стоимость';
+                    }
+                    if (int.tryParse(value) == null) {
+                      return 'Пожалуйста, введите число';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 16),
+                
+                // Поле "Дата оплаты"
+                Text(
+                  'Дата оплаты',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextFormField(
+                  controller: _dateController,
+                  readOnly: true,
+                  onTap: _selectDate,
+                  decoration: InputDecoration(
+                    hintText: 'Выберите дату',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.calendar_today),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Пожалуйста, выберите дату';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 16),
+                
+                // Чекбокс "Пробная подписка"
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _isTrial,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          _isTrial = value ?? false;
+                        });
+                      },
+                    ),
+                    Text('Пробная подписка'),
+                  ],
+                ),
+                SizedBox(height: 16),
+                
+                // Поле "Оповестить за ___ дней"
+                Text(
+                  'Оповестить за',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 8),
+                TextFormField(
+                  controller: _daysController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    hintText: 'Количество дней',
+                    border: OutlineInputBorder(),
+                    suffixText: 'дней',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Пожалуйста, введите количество дней';
+                    }
+                    if (int.tryParse(value) == null) {
+                      return 'Пожалуйста, введите число';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 32),
+                
+                // Кнопка "Добавить подписку"
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _addSubscription,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      'Добавить подписку',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
+              ],
+            ),
           ),
-        ),
+        ), 
       ),
     );
   }
