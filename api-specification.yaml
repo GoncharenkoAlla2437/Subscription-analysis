@@ -1,8 +1,14 @@
 openapi: 3.0.0
 info:
   title: Subscription Tracker API
-  version: 1.0.0
-  description: Многопользовательская система управления подписками
+  version: 2.0.0
+  description: Многопользовательская система управления подписками с поддержкой истории цен и аналитики
+
+servers:
+  - url: https://api.subscription-tracker.com/v1  # Планируемый
+    description: Production server
+  - url: http://localhost:3000/api/v1  # Текущий рабочий
+    description: Development server
 
 components:
   schemas:
@@ -13,19 +19,19 @@ components:
         id:
           type: string
           format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
         email:
           type: string
           format: email
-        firstName:
-          type: string
-        lastName:
-          type: string
+          example: "user@example.com"
         createdAt:
           type: string
           format: date-time
+          example: "2025-01-01T10:30:00Z"
         updatedAt:
           type: string
           format: date-time
+          example: "2025-01-01T10:30:00Z"
       required:
         - id
         - email
@@ -37,13 +43,11 @@ components:
         email:
           type: string
           format: email
+          example: "user@example.com"
         password:
           type: string
           minLength: 8
-        firstName:
-          type: string
-        lastName:
-          type: string
+          example: "securePassword123"
       required:
         - email
         - password
@@ -54,8 +58,10 @@ components:
         email:
           type: string
           format: email
+          example: "user@example.com"
         password:
           type: string
+          example: "securePassword123"
       required:
         - email
         - password
@@ -65,224 +71,304 @@ components:
       properties:
         accessToken:
           type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         refreshToken:
           type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         user:
           $ref: '#/components/schemas/User'
         expiresIn:
           type: integer
           example: 3600
+      required:
+        - accessToken
+        - user
 
     UpdateUserProfile:
       type: object
       properties:
-        firstName:
-          type: string
-        lastName:
-          type: string
         email:
           type: string
           format: email
+          example: "new.email@example.com"
 
-    # Модели устройств
-    DeviceInfo:
-      type: object
-      properties:
-        platform:
-          type: string
-          enum: ["ios", "android", "web", "desktop"]
-        deviceToken:
-          type: string
-          description: "Токен для push-уведомлений"
-        deviceId:
-          type: string
-        appVersion:
-          type: string
-        osVersion:
-          type: string
-      required:
-        - platform
-        - deviceId
-
-    UserDevice:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        deviceInfo:
-          $ref: '#/components/schemas/DeviceInfo'
-        isActive:
-          type: boolean
-        lastSeen:
-          type: string
-          format: date-time
-        createdAt:
-          type: string
-          format: date-time
-
-    # Можели подписок
+    # Модели подписок 
     Subscription:
       type: object
       properties:
         id:
           type: string
           format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440001"
         userId:
           type: string
           format: uuid
         name:
           type: string
-        price:
-          type: number
-        nextBillingDate:
+          example: "КиноПоиск"
+        currentAmount:
+          type: integer
+          nullable: true
+          example: 299
+        nextPaymentDate:
           type: string
           format: date
-        startDate:
+          example: "2025-12-29"
+        connectedDate:
           type: string
           format: date
-        isTrial:
-          type: boolean
-        trialDuration:
-          type: integer
-        notifyBefore:
-          type: integer
-        logoUrl:
+          example: "2024-01-01"
+        archivedDate:
           type: string
-          format: uri
-        serviceUrl:
+          format: date-time
+          nullable: true
+        icon:
           type: string
-          format: uri
+          example: "movie_creation_outlined"
+        color:
+          type: string
+          example: "#FF9800"
         category:
           type: string
-          enum: ["music", "streaming", "software", "education", "health", "food", "other"]
-        billingFrequency:
+          enum: ["music", "video", "books", "games", "education", "social", "other"]
+          example: "video"
+        isTrial:
+          type: boolean
+          default: false
+          description: |
+            Trial-период. Определяется при создании и не может быть изменен.
+            Для завершения trial создайте новую подписку.
+        notifyDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 3
+        billingCycle:
           type: string
-          enum: ["daily", "weekly", "monthly", "yearly"]
+          enum: ["monthly", "quarterly", "yearly"]
+          example: "monthly"
+        billingDay:
+          type: integer
+          minimum: 1
+          maximum: 31
+          example: 20
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-        # возможность вклю/выкл уведы
+        # Уведомления
         notificationsEnabled:
           type: boolean
           default: true
-          description: "Включены ли уведомления для этой подписки"
       required:
         - id
         - userId
         - name
-        - price
-        - nextBillingDate
-        - startDate
-        - isTrial
-        - billingFrequency
+        - nextPaymentDate
+        - connectedDate
         - category
-        - notifyBefore
+        - billingCycle
+        - billingDay
 
-    CreateSubscriptionRequest:
+    # История цен 
+    PriceHistory:
       type: object
       properties:
-        name:
+        id:
           type: string
-        price:
-          type: number
-        nextBillingDate:
+          format: uuid
+        subscriptionId:
           type: string
-          format: date
+          format: uuid
+        amount:
+          type: integer
+          example: 256
         startDate:
           type: string
-          format: date
-        isTrial:
-          type: boolean
-        trialDuration:
-          type: integer
-        notifyBefore:
-          type: integer
-        logoUrl:
-          type: string
-          format: uri
-        serviceUrl:
-          type: string
-          format: uri
-        category:
-          type: string
-          enum: ["music", "streaming", "software", "education", "health", "food", "other"]
-        billingFrequency:
-          type: string
-          enum: ["daily", "weekly", "monthly", "yearly"]
-        notificationsEnabled:
-          type: boolean
-          default: true
-      required:
-        - name
-        - price
-        - nextBillingDate
-        - category
-        - notifyBefore
-
-    UpdateSubscriptionRequest:
-      type: object
-      properties:
-        name:
-          type: string
-        price:
-          type: number
-        nextBillingDate:
-          type: string
-          format: date
-        startDate:
-          type: string
-          format: date
-        isTrial:
-          type: boolean
-        trialDuration:
-          type: integer
-        notifyBefore:
-          type: integer
-        logoUrl:
-          type: string
-          format: uri
-        serviceUrl:
-          type: string
-          format: uri
-        category:
-          type: string
-          enum: ["music", "streaming", "software", "education", "health", "food", "other"]
-        billingFrequency:
-          type: string
-          enum: ["daily", "weekly", "monthly", "yearly"]
-        notificationsEnabled:
-          type: boolean
-
-    PricePeriod:
-      type: object
-      properties:
-        price:
-          type: number
-        startDate:
-          type: string
-          format: date
+          format: date-time
         endDate:
           type: string
-          format: date
-        durationMonths:
-          type: number
-          description: "Длительность периода в месяцах"
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - subscriptionId
+        - amount
+        - startDate
 
+    # Подписка с историей цен
     SubscriptionWithPriceHistory:
       allOf:
         - $ref: '#/components/schemas/Subscription'
         - type: object
           properties:
-            pricePeriods:
+            priceHistory:
               type: array
               items:
-                $ref: '#/components/schemas/PricePeriod'
+                $ref: '#/components/schemas/PriceHistory'
 
-    # Модели уведомлений
+    # Создание подписки 
+    CreateSubscriptionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Kinopoisk"
+        currentAmount:
+          type: integer
+          nullable: true
+          description: |
+            Текущая стоимость подписки.
+            Если isTrial=true, может быть 0 или null.
+            Если isTrial=false, должно быть положительным числом.
+          example: 299
+        nextPaymentDate:
+          type: string
+          format: date
+          example: "2025-12-29"
+        category:
+          type: string
+          enum: ["music", "video", "books", "games", "education", "social", "other"]
+        isTrial:
+          type: boolean
+          default: false
+        notifyDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 3
+        billingCycle:
+          type: string
+          enum: ["monthly", "quarterly", "yearly"]
+        billingDay:
+          type: integer
+          minimum: 1
+          maximum: 31
+        # Автоматически устанавливаются на сервере:
+        # - connectedDate = текущая дата
+        # - icon, color на основе категории
+      required:
+        - name
+        - nextPaymentDate
+        - category
+        - billingCycle
+        - billingDay
+
+    # Обновление подписки
+    UpdateSubscriptionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        currentAmount:
+          type: integer
+          nullable: true
+        nextPaymentDate:
+          type: string
+          format: date
+        category:
+          type: string
+          enum: ["music", "video", "books", "games", "education", "social", "other"]
+        notifyDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+        billingCycle:
+          type: string
+          enum: ["monthly", "quarterly", "yearly"]
+        billingDay:
+          type: integer
+          minimum: 1
+          maximum: 31
+        notificationsEnabled:
+          type: boolean
+          description: "Включены ли уведомления для этой подписки"
+          example: true
+
+    # Архивация подписки
+    ArchiveSubscriptionRequest:
+      type: object
+      properties:
+        confirm:
+          type: boolean
+          description: "Подтверждение архивации (должно быть true)"
+          example: true
+        archivedDate:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+          description: |
+            Дата архивации подписки.
+            Если не указана, используется текущая дата.
+            Эта дата используется в аналитике для определения периода активности подписки.
+      required:
+        - confirm
+
+    # Аналитика 
+    AnalyticsPeriod:
+      type: object
+      properties:
+        period:
+          type: string
+          enum: ["current_month", "last_month", "current_quarter", "last_quarter", "current_year", "last_year", "custom"]
+        startDate:
+          type: string
+          format: date
+          nullable: true
+        endDate:
+          type: string
+          format: date
+          nullable: true
+      required:
+        - period
+
+    CategorySpending:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: ["music", "video", "books", "games", "education", "social", "other"]
+        totalAmount:
+          type: number
+          format: float
+          description: "Общая сумма расходов по категории за период"
+        subscriptionCount:
+          type: integer
+          description: "Количество подписок этой категории, активных в периоде"
+        percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+          format: float
+          description: "Доля расходов по категории от общей суммы"
+      required:
+        - category
+        - totalAmount
+        - subscriptionCount
+        - percentage
+    SpendingSummary:
+      type: object
+      properties:
+        period:
+          $ref: '#/components/schemas/AnalyticsPeriod'
+        totalSpent:
+          type: number
+          format: float
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategorySpending'
+      required:
+        - period
+        - totalSpent
+        - categories
+
+    # Уведомления 
     Notification:
       type: object
       properties:
@@ -295,20 +381,30 @@ components:
         subscriptionId:
           type: string
           format: uuid
-        subscriptionName:
+        type:
           type: string
+          description: "Тип уведомления. Пока поддерживается только payment_reminder"
+          example: "payment_reminder"
         title:
           type: string
+          example: "Скоро списание"
         message:
           type: string
+          example: "Через 3 дня списание 299 руб. за КиноПоиск"
+        scheduledDate:
+          type: string
+          format: date-time
         sentAt:
           type: string
           format: date-time
+          nullable: true
         read:
           type: boolean
+          default: false
         actionUrl:
           type: string
           format: uri
+          nullable: true
         createdAt:
           type: string
           format: date-time
@@ -316,85 +412,10 @@ components:
         - id
         - userId
         - subscriptionId
-        - subscriptionName
+        - type
         - title
         - message
-        - sentAt
-        - read
-
-    NotificationGroup:
-      type: object
-      properties:
-        subscriptionId:
-          type: string
-          format: uuid
-        subscriptionName:
-          type: string
-        unreadCount:
-          type: integer
-          example: 3
-        lastNotification:
-          $ref: '#/components/schemas/Notification'
-        notifications:
-          type: array
-          items:
-            $ref: '#/components/schemas/Notification'
-
-    # Аналитика
-    # анализируемый период
-    AnalyticsPeriod: 
-      type: object
-      properties:
-        period:
-          type: string
-          enum: ["month", "quarter", "year", "custom"]
-        startDate:
-          type: string
-          format: date
-        endDate:
-          type: string
-          format: date
-    # распределение трат по категориям (+ доля от общих расходов)
-    CategorySpending:
-      type: object
-      properties:
-        category:
-          type: string
-          enum: ["music", "streaming", "software", "education", "health", "food", "other"]
-        # общая сумма расходов
-        totalAmount:
-          type: number
-        # кол-во активных подписок категории
-        subscriptionCount:
-          type: integer
-        # доля от общих расходов (для круговой диаграммы)
-        percentage:
-          type: number
-          minimum: 0
-          maximum: 100
-
-
-    # основная модель аналитики
-    SpendingSummary:
-      type: object
-      properties:
-        # временной период анализа
-        period:
-          $ref: '#/components/schemas/AnalyticsPeriod'
-        # общая сумма расходов
-        totalSpent:
-          type: number
-        # детализация по категориям
-        categories:
-          type: array
-          items:
-            $ref: '#/components/schemas/CategorySpending'
-        # выбранная категория для фильтрации
-        selectedCategory:
-          type: string
-          enum: ["music", "streaming", "software", "education", "health", "food", "other"]
-        categorySpending:
-          $ref: '#/components/schemas/CategorySpending'
+        - scheduledDate
 
     # Ошибки
     Error:
@@ -402,22 +423,34 @@ components:
       properties:
         error:
           type: string
+          example: "VALIDATION_ERROR"
         message:
           type: string
+          example: "Неверные данные запроса"
         details:
+          type: object
+          additionalProperties: true
+        timestamp:
           type: string
+          format: date-time
+      required:
+        - error
+        - message
+        - timestamp
 
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: Введите JWT токен без префикса "Bearer"
 
 paths:
-  # Аутентиикация (рег/вход)
+  # Аутентификация
   /auth/register:
     post:
       summary: Регистрация пользователя
+      tags: [Authentication]
       requestBody:
         required: true
         content:
@@ -437,10 +470,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Пользователь с таким email уже существует
 
   /auth/login:
     post:
       summary: Вход в систему
+      tags: [Authentication]
       requestBody:
         required: true
         content:
@@ -456,65 +492,51 @@ paths:
                 $ref: '#/components/schemas/AuthResponse'
         '401':
           description: Неверные учетные данные
+        '404':
+          description: Пользователь не найден
 
-  # Устройства
-  /user/devices:
-    get:
-      summary: Получить список всех устройств пользователя
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Устройства получены
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/UserDevice'
-  
+  /auth/refresh:
     post:
-      summary: Зарегистрировать устройство
-      security:
-        - BearerAuth: []
+      summary: Обновление токена
+      tags: [Authentication]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/DeviceInfo'
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+              required:
+                - refreshToken
       responses:
-        '201':
-          description: Устройство зарегистрировано
+        '200':
+          description: Токен обновлен
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserDevice'
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Невалидный refresh token
 
-    delete:
-      summary: Удалить устройство по deviceId
+  /auth/logout:
+    post:
+      summary: Выход из системы
+      tags: [Authentication]
       security:
         - BearerAuth: []
-      parameters:
-        - name: deviceId
-          in: query
-          required: true
-          schema:
-            type: string
       responses:
         '204':
-          description: Устройство удалено
-        '404':
-          description: Устройство не найдено
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          description: Успешный выход
+        '401':
+          description: Неавторизован
 
-  # Профильно пользователя
+  # Пользователь
   /user/profile:
     get:
       summary: Получить профиль пользователя
+      tags: [User]
       security:
         - BearerAuth: []
       responses:
@@ -524,9 +546,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '401':
+          description: Неавторизован
+        '404':
+          description: Пользователь не найден
 
     patch:
       summary: Обновить профиль пользователя
+      tags: [User]
       security:
         - BearerAuth: []
       requestBody:
@@ -544,15 +571,19 @@ paths:
                 $ref: '#/components/schemas/User'
         '400':
           description: Ошибка валидации
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+        '401':
+          description: Неавторизован
 
   # Подписки
   /subscriptions:
     get:
       summary: Получить подписки пользователя
+      description: Возвращает активные подписки. Можно фильтровать по категории и включать архивные. Для главного экрана приложения отправляется запрос "GET /subscriptions?archived=false&sortBy=nextPaymentDate&sortOrder=asc"
+              **По умолчанию:**
+        - Только активные подписки (archived=false)
+        - Сортировка по nextPaymentDate (от ближайших к дальним)
+        - Без истории цен
+      tags: [Subscriptions]
       security:
         - BearerAuth: []
       parameters:
@@ -560,19 +591,50 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["music", "streaming", "software", "education", "health", "food", "other"]
+            enum: ["music", "video", "books", "games", "education", "social", "other"]
+          description: Фильтр по категории
+        - name: archived
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Включить архивные подписки
+        - name: includePriceHistory
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Включить историю цен
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: ["nextPaymentDate", "name", "currentAmount", "createdAt"]
+            default: "nextPaymentDate"
+          description: Поле для сортировки
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum: ["asc", "desc"]
+            default: "asc"
+          description: Порядок сортировки. Для nextPaymentDate "asc" = ближайшие сверху
       responses:
         '200':
-          description: Success
+          description: Список подписок
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Subscription'
+                  $ref: '#/components/schemas/SubscriptionWithPriceHistory'
+        '401':
+          description: Неавторизован
 
     post:
       summary: Создать подписку
+      description: При создании подписки автоматически добавляется первая запись в историю цен
+      tags: [Subscriptions]
       security:
         - BearerAuth: []
       requestBody:
@@ -587,11 +649,16 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Subscription'
+                $ref: '#/components/schemas/SubscriptionWithPriceHistory'
+        '400':
+          description: Ошибка валидации
+        '401':
+          description: Неавторизован
 
   /subscriptions/{subscriptionId}:
     get:
       summary: Получить подписку по ID с историей цен
+      tags: [Subscriptions]
       security:
         - BearerAuth: []
       parameters:
@@ -608,13 +675,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SubscriptionWithPriceHistory'
+        '401':
+          description: Неавторизован
+        '404':
+          description: Подписка не найдена
 
     patch:
-      summary: Частично обновить подписку
+      summary: Обновить подписку
       description: |
-        Обновляет только указанные поля подписки.
-        При изменении цены автоматически закрывается текущий ценовой период
-        и начинается новый с новой ценой.
+        Обновляет указанные поля подписки.
+        При изменении стоимости (currentAmount) автоматически закрывается текущий период в истории цен и создается новый период с новой стоимостью.
+      tags: [Subscriptions]
       security:
         - BearerAuth: []
       parameters:
@@ -637,15 +708,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SubscriptionWithPriceHistory'
+        '400':
+          description: Ошибка валидации
+        '401':
+          description: Неавторизован
         '404':
           description: Подписка не найдена
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
     delete:
-      summary: Удалить подписку
+      summary: Полностью удалить подписку
+      description: Внимание! Удаление невозможно восстановить. Удаленная подписка не учитывется в аналитике! 
+      tags: [Subscriptions]
       security:
         - BearerAuth: []
       parameters:
@@ -658,18 +731,161 @@ paths:
       responses:
         '204':
           description: Подписка удалена
+        '401':
+          description: Неавторизован
         '404':
           description: Подписка не найдена
+
+  /subscriptions/{subscriptionId}/archive:
+    patch:
+      summary: Архивировать подписку
+      description: Устанавливает дату архивации подписки.Это действие необратимо - подписку нельзя восстановить из архива. Архивные подписки:не отображаются в основном списке (только с параметром archived=true), не генерируют уведомления о будущих платежах, не участвуют в расчетах будущих расходов. Архивные подписки учитываются в аналитике за период, когда они были активны.
+      tags: [Subscriptions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveSubscriptionRequest'
+      responses:
+        '200':
+          description: Подписка заархивирована
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/Subscription'
+        '401':
+          description: Неавторизован
+        '404':
+          description: Подписка не найдена
+
+  # История цен
+  /subscriptions/{subscriptionId}/price-history:
+    get:
+      summary: Получить историю цен подписки
+      tags: [Price History]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: subscriptionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: История цен получена
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PriceHistory'
+        '401':
+          description: Неавторизован
+        '404':
+          description: Подписка не найдена
+
+  # Аналитика
+  /analytics/spending:
+    get:
+      summary: Получить сводку расходов за период
+      description: Возвращает аналитику расходов с разбивкой по категориям.
+              **Включает:**
+        - Активные подписки за весь период
+        - Архивные подписки за период их активности (до archivedDate)
+        - Удаленные подписки не включаются
+        
+        **Не включает:**
+        - Архивные подписки после даты архивации
+        - Подписки, подключенные после конца периода
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["current_month", "last_month", "current_quarter", "last_quarter", "current_year", "last_year", "custom"]
+          description: Период для анализа
+        - name: startDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Начальная дата (для custom периода)
+        - name: endDate
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+          description: Конечная дата (для custom периода)
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["music", "video", "books", "games", "education", "social", "other"]
+          description: Фильтр по категории (опционально)
+      responses:
+        '200':
+          description: Сводка расходов получена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendingSummary'
+        '400':
+          description: Ошибка валидации параметров
+        '401':
+          description: Неавторизован
+
+  /analytics/upcoming-payments:
+    get:
+      summary: Получить предстоящие платежи
+      description: Возвращает список подписок с ближайшими датами списания
+      tags: [Analytics]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: daysAhead
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 30
+          description: Количество дней вперед для поиска платежей
+      responses:
+        '200':
+          description: Список предстоящих платежей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Subscription'
+        '401':
+          description: Неавторизован
 
   # Уведомления
   /notifications:
     get:
       summary: Получить уведомления пользователя
-      description: Возвращает список уведомлений для подписок с включенными уведомлениями
+      tags: [Notifications]
       security:
         - BearerAuth: []
       parameters:
@@ -677,6 +893,8 @@ paths:
           in: query
           schema:
             type: boolean
+            default: false
+          description: Только непрочитанные уведомления
         - name: limit
           in: query
           schema:
@@ -684,42 +902,29 @@ paths:
             minimum: 1
             maximum: 100
             default: 50
+        - name: offset
+          description: Количество уведов, которые нужно пропустить перед началом выборки, вместе с limit реализует пагинацию
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         '200':
-          description: Success
+          description: Список уведомлений
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Notification'
-
-  /notifications/grouped:
-    get:
-      summary: Получить уведомления, сгруппированные по подпискам
-      description: |
-        Возвращает уведомления, сгруппированные по подпискам.
-        Используется для экрана со списком подписок и количеством непрочитанных уведомлений.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: unreadOnly
-          in: query
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/NotificationGroup'
+        '401':
+          description: Неавторизован
 
   /notifications/{notificationId}/read:
     patch:
       summary: Пометить уведомление как прочитанное
+      tags: [Notifications]
       security:
         - BearerAuth: []
       parameters:
@@ -731,15 +936,20 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Уведомление прочитано
+          description: Уведомление помечено как прочитанное
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Notification'
+        '401':
+          description: Неавторизован
+        '404':
+          description: Уведомление не найдено
 
   /notifications/read-all:
     post:
       summary: Пометить все уведомления как прочитанные
+      tags: [Notifications]
       security:
         - BearerAuth: []
       responses:
@@ -752,88 +962,9 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "All notifications marked as read"
+                    example: "Все уведомления помечены как прочитанные"
                   count:
                     type: integer
                     example: 5
-
-  # Аналитика
-  /analytics/spending/summary:
-    get:
-      summary: Получить сводку расходов за период
-      description: |
-        Возвращает общие расходы за указанный период с разбивкой по категориям.
-        Если указана категория - возвращает расходы только по этой категории.
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: period
-          in: query
-          required: true
-          schema:
-            type: string
-            enum: ["current_month", "last_month", "current_quarter", "last_quarter", "current_year", "last_year", "custom"]
-          description: "Период для анализа"
-        - name: startDate
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-          description: "Начальная дата (только для custom периода)"
-        - name: endDate
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-          description: "Конечная дата (только для custom периода)"
-        - name: category
-          in: query
-          required: false
-          schema:
-            type: string
-            enum: ["music", "streaming", "software", "education", "health", "food", "other"]
-          description: "Фильтр по категории (опционально)"
-      responses:
-        '200':
-          description: Сводка расходов получена
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SpendingSummary'
-
-  /analytics/spending/categories:
-    get:
-      summary: Получить распределение расходов по категориям
-      description: Возвращает процентное распределение расходов по категориям за период
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: period
-          in: query
-          required: true
-          schema:
-            type: string
-            enum: ["current_month", "last_month", "current_quarter", "last_quarter", "current_year", "last_year", "custom"]
-        - name: startDate
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: endDate
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-      responses:
-        '200':
-          description: Распределение по категориям получено
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CategorySpending'
+        '401':
+          description: Неавторизован
