@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, String, Date, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, DateTime, Boolean, ForeignKey
 from sqlalchemy import Enum as SQLEnum
 from database import Base
 from enum import Enum
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from backend.models.user import User
 
@@ -21,8 +21,19 @@ class Sub_period(str, Enum):
     quarterly = "quarterly"
     yearly = "yearly"
 
+class PriceHistory(Base):
+    __tablename__ = "prise_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subscriptionId = Column(Integer,  ForeignKey("subscriptions.id"), primary_key=True, index=True)
+    amount = Column(Integer, nullable = False)
+    startDate = Column(Date, nullable=False, default = date.today())
+    endDate = Column(Date)
+    createdAt = Column(DateTime, default=datetime.utcnow)
+
+
 class Subscription(Base):
-    tablename = "subscriptions"
+    __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True, index=True)
     userId = Column(Integer,  ForeignKey("users.id"), primary_key=True, index=True)
@@ -34,9 +45,13 @@ class Subscription(Base):
     category = Column(SQLEnum(Sub_category), nullable=False)
     notifyDays = Column(Integer, nullable=False, default = 3) #За сколько дней уведомлять об окончании подписки (мин и макс в отдельной функции)
     billingCycle = Column(SQLEnum(Sub_period), nullable = False, default = "mounthly") #период обновления
+    billingDays = Column(Integer, nullable=False) # дни обновления, если не период
     # num_debits = Column(Integer, nullable=False, default = 0) #сколько раз списывались деньги, возможно понадобится при аналитике
     # autoRenewal = Column(Boolean, default=False) # автопродлять или сразу кидать в архив - если во фронте добавим такую галочку при создании подписки
     notificationsEnabled = Column(Boolean, default=True) # отправлять ли уведомления - опять же нужна галочка во фронте
+    createdAt = Column(DateTime, default=datetime.utcnow)
+    updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
 
     # def set_duration(self, months: int):  
     #     self.end_date = self.connectedDate + relativedelta(months=months)
@@ -49,6 +64,7 @@ class Subscription(Base):
     #         return date.today() <= self.nextPaymentDate
     #     return 0
     
+
     # Свойство для получения оставшихся дней до списания
     @property
     def days_remaining(self):
