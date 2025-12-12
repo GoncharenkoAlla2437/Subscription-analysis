@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Security
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
-from backend.database import SessionLocal
+from backend.database import SessionLocal, get_db
 from backend.models.user import User
 from backend.utils.security import  hash_password, verify_password, create_access_token, create_refresh_token,decode_refresh_token, decode_access_token
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordRequestForm
@@ -13,16 +13,6 @@ router = APIRouter(
     prefix="/auth",
     tags=["auth"]
 )
-
-
-# DB Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 # ----------------------------
 # SCHEMAS (валидация данных)
