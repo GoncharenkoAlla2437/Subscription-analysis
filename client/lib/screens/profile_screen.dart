@@ -1,23 +1,11 @@
+// lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'archive_screen.dart';
-import '../models/subscription.dart';
-
-// class ProfileScreen extends StatelessWidget {
-//   const ProfileScreen({Key? key}) : super(key: key);
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: Text('Личный кабинет')),
-//       body: Center(child: Text('Личный кабинет - в разработке')),
-//     );
-//   }
-// }
+import '../providers/subscription_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final List<Subscription> subscriptions; // Добавляем получение списка подписок
-
-  const ProfileScreen({Key? key, required this.subscriptions}) : super(key: key);
+  const ProfileScreen({Key? key}) : super(key: key); // Убираем required subscriptions
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -63,12 +51,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Обновляем функцию перехода в архив
   void _navigateToArchive() {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ArchiveScreen(subscriptions: widget.subscriptions),
+        builder: (context) => ArchiveScreen(), // Без параметра
       ),
     );
   }
@@ -83,6 +70,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Получаем провайдер подписок для отображения количества архивных
+    final subscriptionProvider = context.watch<SubscriptionProvider>();
+    final archivedCount = subscriptionProvider.archivedSubscriptions.length;
+
     return Scaffold(
       backgroundColor: Color.fromARGB(248, 223, 218, 245),
       appBar: AppBar(
@@ -170,8 +161,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             SizedBox(height: 32),
 
-            // Архив подписок - обновляем onTap
-            _buildArchiveButton(),
+            // Архив подписок
+            _buildArchiveButton(archivedCount),
           ],
         ),
       ),
@@ -247,8 +238,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Кнопка архива подписок - обновляем onTap
-  Widget _buildArchiveButton() {
+  // Кнопка архива подписок
+  Widget _buildArchiveButton(int archivedCount) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -270,8 +261,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-        onTap: _navigateToArchive, // Используем обновленную функцию
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (archivedCount > 0)
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  archivedCount.toString(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            SizedBox(width: 8),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+          ],
+        ),
+        onTap: _navigateToArchive,
       ),
     );
   }

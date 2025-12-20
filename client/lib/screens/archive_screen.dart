@@ -1,19 +1,19 @@
+// lib/screens/archive_screen.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/subscription.dart';
+import '../providers/subscription_provider.dart';
 
 class ArchiveScreen extends StatelessWidget {
-  final List<Subscription> subscriptions;
-
-  const ArchiveScreen({Key? key, required this.subscriptions}) : super(key: key);
-
-  // Получаем только архивные подписки
-  List<Subscription> get _archivedSubscriptions {
-    return subscriptions.where((sub) => sub.archivedDate != null).toList();
-  }
+  const ArchiveScreen({Key? key}) : super(key: key); // Убираем required subscriptions
 
   @override
   Widget build(BuildContext context) {
+    // Получаем архивные подписки из провайдера
+    final subscriptionProvider = context.watch<SubscriptionProvider>();
+    final archivedSubscriptions = subscriptionProvider.archivedSubscriptions;
+
     return Scaffold(
       backgroundColor: Color.fromARGB(248, 223, 218, 245),
       appBar: AppBar(
@@ -22,13 +22,13 @@ class ArchiveScreen extends StatelessWidget {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: _archivedSubscriptions.isEmpty
+      body: archivedSubscriptions.isEmpty
           ? _buildEmptyState()
           : ListView.builder(
               padding: EdgeInsets.all(16),
-              itemCount: _archivedSubscriptions.length,
+              itemCount: archivedSubscriptions.length,
               itemBuilder: (context, index) {
-                final subscription = _archivedSubscriptions[index];
+                final subscription = archivedSubscriptions[index];
                 return _buildArchivedSubscriptionItem(subscription);
               },
             ),
@@ -107,7 +107,7 @@ class ArchiveScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'Категория: ${subscription.category}',
+                        'Категория: ${subscription.category.toString().split('.').last}',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
@@ -125,7 +125,7 @@ class ArchiveScreen extends StatelessWidget {
                   ),
                 ),
                 
-                if (subscription.currentAmount != null && subscription.currentAmount! > 0)
+                if (subscription.currentAmount > 0)
                   Text(
                     '${subscription.currentAmount} руб.',
                     style: TextStyle(
@@ -146,8 +146,6 @@ class ArchiveScreen extends StatelessWidget {
                   _buildDetailRow('Дата подключения:', 
                       DateFormat('dd.MM.yyyy').format(subscription.connectedDate)),
                   _buildDetailRow('Периодичность списаний:', subscription.billingCycleText),
-                  // if (subscription.isTrial)
-                  //   _buildDetailRow('Тип:', 'Пробная подписка'),
                   
                   // История цен если есть изменения
                   if (subscription.priceHistory.length > 1) ...[

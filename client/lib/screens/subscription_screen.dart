@@ -1,96 +1,123 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:my_first_app/models/subscription.dart';
+import 'package:provider/provider.dart';
 import '../widgets/add_subscription_modal.dart';
 import '../widgets/subscription_item.dart';
-import '../models/subscription.dart';
-
+import '../providers/subscription_provider.dart';
+import '../providers/auth_provider.dart';
 import 'profile_screen.dart';
 import 'analytics_screen.dart';
 import 'notifications_screen.dart';
+import 'archive_screen.dart';
 
 class SubscriptionsScreen extends StatefulWidget {
   SubscriptionsScreen({Key? key}) : super(key: key);
 
   @override
-  State<SubscriptionsScreen> createState() => _SubscriptionsScreenState(); // создает объект State для управления StatefulWidget
+  State<SubscriptionsScreen> createState() => _SubscriptionsScreenState();
 }
 
 class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  
-  List<Subscription> subscriptions = [];// Сначала список подписок пустой
-  final List<String> categories = ['Все', 'Музыка', 'Видео', 'Книги', 'Соцсети', 'Другое'];
+  final List<String> categories = ['Все', 'Музыка', 'Видео', 'Книги', 'Игры', 'Образование', 'Соцсети', 'Другое'];
   String selectedCategory = 'Все';
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _autoUpdateSubscriptionDates();
-  }
-  // Функция для автообновления дат подписок
-  void _autoUpdateSubscriptionDates() {
-    setState(() {
-      subscriptions = subscriptions.map((subscription) {
-        return subscription.getUpdatedSubscription();
-      }).toList();
+    // Загружаем подписки при инициализации экрана
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<SubscriptionProvider>();
+      if (!provider.hasLoaded) {
+        provider.loadSubscriptions();
+      }
     });
   }
 
   // Функция для показа модального окна добавления подписки
   void _showAddSubscriptionModal() async {
-
-    final newSubscription = await showModalBottomSheet<Subscription>(
+    final subscriptionProvider = context.read<SubscriptionProvider>();
+    
+    // Показываем модальное окно
+    final newSubscription = await showModalBottomSheet<dynamic>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AddSubscriptionModal(),
     );
 
+    // Если вернулась подписка, создаём её через провайдер
     if (newSubscription != null) {
-      setState(() {
-        subscriptions.add(newSubscription);
-      });
+      final result = await subscriptionProvider.createSubscription(newSubscription);
+      
+      if (result != null) {
+        _showSnackBar('Подписка успешно создана');
+      } else if (subscriptionProvider.error != null) {
+        _showErrorSnackBar(subscriptionProvider.error!);
+      }
     }
   }
 
   // Функция обновления подписки
-  void _updateSubscription(Subscription updatedSubscription) {
-    setState(() {
-      final index = subscriptions.indexWhere((sub) => sub.id == updatedSubscription.id);
-      if (index != -1) {
-        subscriptions[index] = updatedSubscription;
-      }
-    });
+  void _updateSubscription(Subscription updatedSubscription) async {
+    final provider = context.read<SubscriptionProvider>();
+    final result = await provider.updateSubscription(updatedSubscription);
+    
+    if (result != null) {
+      _showSnackBar('Подписка успешно обновлена');
+    } else if (provider.error != null) {
+      _showErrorSnackBar(provider.error!);
+    }
   }
 
   // Функция архивации подписки
-  void _archiveSubscription(String subscriptionId) {
-    setState(() {
-      final index = subscriptions.indexWhere((sub) => sub.id == subscriptionId);
-      if (index != -1) {
-        subscriptions[index] = subscriptions[index].copyWith(
-          archivedDate: DateTime.now(),
-        );
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Подписка перемещена в архив'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    });
+  void _archiveSubscription(String subscriptionId) async {
+    final provider = context.read<SubscriptionProvider>();
+    final success = await provider.archiveSubscription(subscriptionId);
+    
+    if (success) {
+      _showSnackBar('Подписка перемещена в архив');
+    } else if (provider.error != null) {
+      _showErrorSnackBar(provider.error!);
+    }
+  }
+
+  // Функция для обновления (перезагрузки) данных
+  void _refreshData() async {
+    final provider = context.read<SubscriptionProvider>();
+    await provider.loadSubscriptions(forceRefresh: true);
+    
+    if (provider.error == null) {
+      _showSnackBar('Данные обновлены');
+    }
+  }
+
+  // Вспомогательные функции для уведомлений
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: Duration(seconds: 2),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error),
+        duration: Duration(seconds: 3),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Фильтруем активные подписки
-    final activeSubscriptions = subscriptions.where((sub) => sub.archivedDate == null).toList();
-    
-    // Фильтруем по выбранной категории
-    final filteredSubscriptions = selectedCategory == 'Все'
-        ? activeSubscriptions
-        : activeSubscriptions.where((sub) => sub.category == selectedCategory).toList();
+    final subscriptionProvider = context.watch<SubscriptionProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
       key: _scaffoldKey,
@@ -101,10 +128,15 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
         actions: [
+          // Кнопка обновления
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.black),
+            onPressed: subscriptionProvider.isLoading ? null : _refreshData,
+          ),
+          // Кнопка меню
           IconButton(
             icon: Icon(Icons.menu, color: Colors.black),
             onPressed: () {
-              // Открываем правую боковую панель
               _scaffoldKey.currentState!.openEndDrawer();
             },
           ),
@@ -112,7 +144,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       ),
       
       // Боковая выдвижная панель
-      endDrawer: _buildDrawer(context),
+      endDrawer: _buildDrawer(context, authProvider),
       
       // Кнопка добавления новой подписки
       floatingActionButton: FloatingActionButton(
@@ -122,54 +154,157 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
 
-      body: Column(
-        children: [
-          // Горизонтальная полоска с категориями
-          Container(
-            height: 60,
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: categories.length,
-              separatorBuilder: (context, index) => SizedBox(width: 12),
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final isSelected = category == selectedCategory;
-                
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      selectedCategory = category;
-                    });
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? Colors.blue : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected ? Colors.blue : Colors.grey[300]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      category,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black87,
-                        fontWeight: FontWeight.w500,
-                      ),
+      body: _buildBody(subscriptionProvider),
+    );
+  }
+
+  // Построение основного содержимого экрана
+  Widget _buildBody(SubscriptionProvider provider) {
+    // Если загрузка и нет данных
+    if (provider.isLoading && !provider.hasLoaded) {
+      return Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    // Если ошибка
+    if (provider.error != null && !provider.hasLoaded) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: Colors.red),
+            SizedBox(height: 16),
+            Text(
+              'Ошибка загрузки',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                provider.error!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.red),
+              ),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => provider.loadSubscriptions(forceRefresh: true),
+              child: Text('Повторить'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Получаем активные подписки и фильтруем
+    final activeSubscriptions = provider.activeSubscriptions;
+    
+    // Фильтруем по категории
+    List<Subscription> filteredSubscriptions = selectedCategory == 'Все'
+        ? activeSubscriptions
+        : activeSubscriptions.where((sub) => _matchesCategory(sub, selectedCategory)).toList();
+    
+    // Фильтруем по поисковому запросу
+    if (_searchQuery.isNotEmpty) {
+      filteredSubscriptions = filteredSubscriptions.where((sub) =>
+        sub.name.toLowerCase().contains(_searchQuery.toLowerCase())
+      ).toList();
+    }
+
+    return Column(
+      children: [
+        // Поисковая строка
+        Padding(
+          padding: EdgeInsets.all(16),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Поиск подписок...',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              filled: true,
+              fillColor: Colors.white,
+            ),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
+          ),
+        ),
+
+        // Горизонтальная полоска с категориями
+        Container(
+          height: 60,
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: categories.length,
+            separatorBuilder: (context, index) => SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              final isSelected = category == selectedCategory;
+              
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedCategory = category;
+                  });
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.blue : Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected ? Colors.blue : Colors.grey[300]!,
+                      width: 1,
                     ),
                   ),
-                );
-              },
-            ),
+                  child: Text(
+                    category,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
+        ),
 
-          // Список подписок или сообщение об отсутствии
-          Expanded(
-            child: filteredSubscriptions.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
+        // Статистика (кол-во подписок)
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Найдено: ${filteredSubscriptions.length}',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+              Text(
+                'Всего активных: ${activeSubscriptions.length}',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+
+        // Список подписок или сообщение об отсутствии
+        Expanded(
+          child: filteredSubscriptions.isEmpty
+              ? _buildEmptyState(provider)
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    await provider.loadSubscriptions(forceRefresh: true);
+                  },
+                  child: ListView.builder(
                     padding: EdgeInsets.all(16),
                     itemCount: filteredSubscriptions.length,
                     itemBuilder: (context, index) {
@@ -181,13 +316,28 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                       );
                     },
                   ),
-          ),
-        ],
-      ),
+                ),
+        ),
+      ],
     );
   }
-    // Виджет для пустого состояния
-  Widget _buildEmptyState() {
+
+  // Проверка соответствия категории
+  bool _matchesCategory(Subscription subscription, String uiCategory) {
+    switch (subscription.category) {
+      case SubscriptionCategory.music: return uiCategory == 'Музыка';
+      case SubscriptionCategory.video: return uiCategory == 'Видео';
+      case SubscriptionCategory.books: return uiCategory == 'Книги';
+      case SubscriptionCategory.games: return uiCategory == 'Игры';
+      case SubscriptionCategory.education: return uiCategory == 'Образование';
+      case SubscriptionCategory.social: return uiCategory == 'Соцсети';
+      case SubscriptionCategory.other: return uiCategory == 'Другое';
+      default: return false;
+    }
+  }
+
+  // Виджет для пустого состояния
+  Widget _buildEmptyState(SubscriptionProvider provider) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -199,7 +349,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           ),
           SizedBox(height: 20),
           Text(
-            'Нет активных подписок',
+            _searchQuery.isEmpty 
+              ? 'Нет активных подписок'
+              : 'Ничего не найдено по запросу "$_searchQuery"',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
@@ -208,19 +360,36 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            'Нажмите на "+" чтобы добавить первую подписку',
+            _searchQuery.isEmpty
+              ? 'Нажмите на "+" чтобы добавить первую подписку'
+              : 'Попробуйте изменить запрос или категорию',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey[500],
             ),
             textAlign: TextAlign.center,
           ),
+          if (provider.archivedSubscriptions.isNotEmpty && _searchQuery.isEmpty)
+            Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: ElevatedButton.icon(
+                icon: Icon(Icons.archive),
+                label: Text('Перейти в архив (${provider.archivedSubscriptions.length})'),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ArchiveScreen()),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
   }
+
   // Функция для построения боковой панели
-  Widget _buildDrawer(BuildContext context) {
+  Widget _buildDrawer(BuildContext context, AuthProvider authProvider) {
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -244,7 +413,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   ),
                   SizedBox(height: 12),
                   Text(
-                    'Пользователь',
+                    authProvider.user?.email ?? 'Пользователь',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -253,7 +422,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'user@example.com',
+                    authProvider.isAuthenticated ? 'Аккаунт активен' : 'Не авторизован',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
@@ -276,23 +445,37 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     },
                   ),
                   _buildDrawerItem(
+                    icon: Icons.archive,
+                    title: 'Архив подписок',
+                    badge: context.read<SubscriptionProvider>().archivedSubscriptions.length,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ArchiveScreen()),
+                      );
+                    },
+                  ),
+                  _buildDrawerItem(
                     icon: Icons.person,
                     title: 'Личный кабинет',
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(
-                            builder: (context) => ProfileScreen(subscriptions: subscriptions),
-                          ));
-                        },
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ProfileScreen()),
+                      );
+                    },
                   ),                   
                   _buildDrawerItem(
                     icon: Icons.analytics,
                     title: 'Аналитика',
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(
-                            builder: (context) => AnalyticsScreen(),
-                          ));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => AnalyticsScreen()),
+                      );
                     },
                   ),
                   _buildDrawerItem(
@@ -300,12 +483,12 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     title: 'Уведомления',
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(
-                            builder: (context) => NotificationsScreen(),
-                          ));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => NotificationsScreen()),
+                      );
                     },
                   ),
-                  
                   
                   // Разделитель
                   Divider(height: 24, thickness: 1),
@@ -315,7 +498,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                     title: 'Выйти',
                     onTap: () {
                       Navigator.pop(context);
-                      _showLogoutDialog(context);
+                      _showLogoutDialog(context, authProvider);
                     },
                   ),
                 ],
@@ -332,6 +515,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
+    int? badge,
   }) {
     return ListTile(
       leading: Icon(icon, color: Colors.grey[700]),
@@ -339,22 +523,22 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
         title,
         style: TextStyle(fontSize: 16),
       ),
+      trailing: badge != null && badge > 0
+          ? CircleAvatar(
+              radius: 12,
+              backgroundColor: Colors.red,
+              child: Text(
+                badge > 99 ? '99+' : badge.toString(),
+                style: TextStyle(fontSize: 10, color: Colors.white),
+              ),
+            )
+          : null,
       onTap: onTap,
     );
   }
 
-  // Функция для показа сообщения "Скоро будет"
-  void _showComingSoonMessage(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature - скоро будет доступно!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
   // Функция для показа диалога выхода
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, AuthProvider authProvider) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -372,7 +556,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               child: Text('Выйти', style: TextStyle(color: Colors.red)),
               onPressed: () {
                 Navigator.of(context).pop();
-                _showComingSoonMessage(context, 'Выход');
+                authProvider.logout();
+                // Здесь можно добавить навигацию на экран входа
+                _showSnackBar('Вы вышли из системы');
               },
             ),
           ],
@@ -381,4 +567,3 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 }
-
