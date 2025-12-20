@@ -1,30 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Security
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, Depends, HTTPException, status, Security, Request
 from sqlalchemy.orm import Session
-from backend.database import SessionLocal, get_db
+from backend.database import SessionLocal
 from backend.models.user import User
-from backend.utils.security import  hash_password, verify_password, create_access_token, create_refresh_token,decode_refresh_token, decode_access_token
+from backend.utils.security import  hash_password, verify_password, create_access_token, create_refresh_token,decode_refresh_token, decode_token
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordRequestForm
-
-router = APIRouter()
+from ..schemas.user import UserRegister, UserLogin
 security = HTTPBearer()
 
 router = APIRouter(
-    prefix="/auth",
+    prefix="/api",
     tags=["auth"]
 )
 
-# ----------------------------
-# SCHEMAS (валидация данных)
-# ----------------------------
-class UserRegister(BaseModel):
-    email: EmailStr
-    password: str
 
+# DB Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
 
 
 # ---------------------------------------
@@ -32,19 +28,64 @@ class UserLogin(BaseModel):
 # ---------------------------------------
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
+    # ✅ Pydantic автоматически проверит совпадение паролей через валидатор
+    # ✅ ДОБАВЬТЕ ЭТО ПЕРЕД ВСЕМ
+    print("=" * 50)
+    print("✅ UserRegister model successfully validated!")
+    print(f"   Email: {user.email}")
+    print(f"   Password: {'*' * len(user.password)} (length: {len(user.password)})")
+    print(f"   Confirm password: {'*' * len(user.confirm_password)}")
+    print("=" * 50)
+    # Проверяем существование пользователя
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
-        raise HTTPException(status_code=400, detail="Email already exists")
+        # Security best practice: не говорим точно, что email уже существует
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Registration failed"
+        )
 
+    # Дополнительная проверка: пароль не должен содержать email
+    email_local_part = user.email.split('@')[0].lower()
+    if email_local_part in user.password.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password should not contain your email"
+        )
+
+    # Дополнительная проверка: пароль не равен email
+    if user.password.lower() == user.email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password cannot be the same as email"
+        )
+
+    # Хэшируем пароль и создаем пользователя
     new_user = User(
         email=user.email,
-        password=hash_password(user.password)
+        password=hash_password(user.password)  # ✅ используем только password
     )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
 
-    return {"message": "User registered successfully"}
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+
+        return {
+            "message": "User registered successfully",
+            "user_id": new_user.id,
+            "email": new_user.email
+        }
+
+    except Exception as e:
+        db.rollback()
+        # Логируем ошибку для администратора
+        import logging
+        logger = logging.getLogger(__name__)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration failed, please try again"
+        )
 
 
 # ---------------------------------------
@@ -137,3 +178,37 @@ security = [{"oauth2_scheme": []}]
 @router.get("/me")
 def get_me(user: User = Depends(get_current_user)):
     return {"id": user.id, "email": user.email}
+
+
+@router.post("/test-validation")
+async def test_validation(request: Request):
+    """Тестовый эндпоинт для проверки валидации"""
+    try:
+        # Пытаемся получить сырые данные
+        raw_data = await request.json()
+        print("📦 Raw data received:", raw_data)
+
+        # Пытаемся создать модель
+        user = UserRegister(**raw_data)
+
+        return {
+            "success": True,
+            "message": "✅ Validation passed",
+            "data": {
+                "email": user.email,
+                "password_length": len(user.password),
+                "confirm_password_length": len(user.confirm_password)
+            }
+        }
+
+    except Exception as e:
+        print("❌ Validation error:", str(e))
+        import traceback
+        traceback.print_exc()
+
+        return {
+            "success": False,
+            "error": str(e),
+            "type": type(e).__name__,
+            "raw_data": raw_data
+        }

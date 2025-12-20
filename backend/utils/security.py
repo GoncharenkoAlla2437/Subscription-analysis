@@ -31,7 +31,7 @@ def create_refresh_token(data: dict, expires_days: int = 7):
     return jwt.encode(to_encode, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decode_access_token(token: str):
+def decode_token(token: str):
     try:
         return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
