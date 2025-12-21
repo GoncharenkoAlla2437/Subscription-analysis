@@ -1,16 +1,15 @@
-// lib/providers/subscription_provider.dart
 import 'package:flutter/material.dart';
 import '../models/subscription.dart';
 import '../services/subscription_service.dart';
 
 class SubscriptionProvider extends ChangeNotifier {
   // Состояние
-  List<Subscription> _subscriptions = [];
-  bool _isLoading = false;
-  String? _error;
-  bool _hasLoaded = false;
+  List<Subscription> _subscriptions = []; // Какие данные показывать
+  bool _isLoading = false;  // Какой экран показывать (спиннер/данные)
+  String? _error;  // Что показывать в случае ошибки
+  bool _hasLoaded = false;  // Уже загрузились или нет
 
-  // Геттеры
+  // Геттеры для доступа к состоянию из UI
   List<Subscription> get subscriptions => _subscriptions;
   bool get isLoading => _isLoading;
   String? get error => _error;

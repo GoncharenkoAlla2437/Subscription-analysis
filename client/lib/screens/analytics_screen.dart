@@ -1,921 +1,435 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:fl_chart/fl_chart.dart';
+import '../providers/analytics_provider.dart';
+import '../models/subscription.dart';
+import '../widgets/app_drawer.dart';
+import 'category_detail_screen.dart';
+
 
 class AnalyticsScreen extends StatefulWidget {
-  const AnalyticsScreen({super.key});
+  const AnalyticsScreen({Key? key}) : super(key: key);
 
   @override
-  AnalyticsScreenState createState() => AnalyticsScreenState();
+  State<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
-class AnalyticsScreenState extends State<AnalyticsScreen> {
-  String selectedPeriod = 'месяц';
-  String selectedMonth = 'сентябрь';
-  String selectedQuarter = '1 квартал';
-  String selectedYear = '2024';
+class _AnalyticsScreenState extends State<AnalyticsScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  int _touchedIndex = -1;
 
-  // Данные для разных периодов
-  final Map<String, List<Category>> periodData = {
-    'месяц': [
-      Category(name: 'Кино', amount: 2120, color: const Color(0xFFFF6B6B), icon: Icons.movie),
-      Category(name: 'Книги', amount: 1060, color: const Color(0xFF4ECDC4), icon: Icons.book),
-      Category(name: 'Музыка', amount: 795, color: const Color(0xFF45B7D1), icon: Icons.music_note),
-      Category(name: 'Еда', amount: 795, color: const Color(0xFF96CEB4), icon: Icons.restaurant),
-      Category(name: 'Другое', amount: 530, color: const Color(0xFFFFEAA7), icon: Icons.more_horiz),
-    ],
-    'квартал': [
-      Category(name: 'Кино', amount: 5800, color: const Color(0xFFFF6B6B), icon: Icons.movie),
-      Category(name: 'Книги', amount: 3200, color: const Color(0xFF4ECDC4), icon: Icons.book),
-      Category(name: 'Транспорт', amount: 2500, color: const Color(0xFF9966CC), icon: Icons.directions_car),
-      Category(name: 'Еда', amount: 4200, color: const Color(0xFF96CEB4), icon: Icons.restaurant),
-      Category(name: 'Развлечения', amount: 1800, color: const Color(0xFFFFA500), icon: Icons.celebration),
-    ],
-    'год': [
-      Category(name: 'Кино', amount: 21500, color: const Color(0xFFFF6B6B), icon: Icons.movie),
-      Category(name: 'Книги', amount: 12800, color: const Color(0xFF4ECDC4), icon: Icons.book),
-      Category(name: 'Путешествия', amount: 45000, color: const Color(0xFF32CD32), icon: Icons.flight),
-      Category(name: 'Еда', amount: 16800, color: const Color(0xFF96CEB4), icon: Icons.restaurant),
-      Category(name: 'Техника', amount: 32000, color: const Color(0xFF808080), icon: Icons.computer),
-    ],
-  };
-
-  // Данные для детальной аналитики по категориям
-  final Map<String, List<SubCategory>> detailedData = {
-    'Кино': [
-      SubCategory(name: 'Кинопоиск', amount: 850, color: const Color(0xFFFF6B6B)),
-      SubCategory(name: 'Okko', amount: 670, color: const Color(0xFFFF8E53)),
-      SubCategory(name: 'Иви', amount: 450, color: const Color(0xFFFFB6C1)),
-      SubCategory(name: 'More.tv', amount: 150, color: const Color(0xFFFFD700)),
-    ],
-    'Музыка': [
-      SubCategory(name: 'Яндекс Музыка', amount: 450, color: const Color(0xFF45B7D1)),
-      SubCategory(name: 'Spotify', amount: 220, color: const Color(0xFF1DB954)),
-      SubCategory(name: 'VK Музыка', amount: 125, color: const Color(0xFF0077FF)),
-    ],
-    'Книги': [
-      SubCategory(name: 'Литрес', amount: 680, color: const Color(0xFF4ECDC4)),
-      SubCategory(name: 'MyBook', amount: 280, color: const Color(0xFF20B2AA)),
-      SubCategory(name: 'Bookmate', amount: 100, color: const Color(0xFF00CED1)),
-    ],
-    'Еда': [
-      SubCategory(name: 'Delivery Club', amount: 320, color: const Color(0xFF96CEB4)),
-      SubCategory(name: 'Yandex Eda', amount: 280, color: const Color(0xFFFF6B6B)),
-      SubCategory(name: 'Самовывоз', amount: 195, color: const Color(0xFF32CD32)),
-    ],
-  };
-
-  List<Category> get currentCategories => periodData[selectedPeriod] ?? [];
-  double get totalAmount => currentCategories.fold(0, (sum, category) => sum + category.amount);
-  
-
-
-
-
-
-
-  void _navigateToCategoryDetail(String categoryName) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => CategoryDetailScreen(
-          categoryName: categoryName,
-          subCategories: detailedData[categoryName] ?? [],
-          selectedPeriod: selectedPeriod,
-          selectedMonth: selectedMonth,
-          selectedQuarter: selectedQuarter,
-          selectedYear: selectedYear,
-        ),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<AnalyticsProvider>();
+      provider.loadGeneralAnalytics();
+    });
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color.fromARGB(248, 223, 218, 245),
-      appBar: AppBar(
-        title: Text('Аналитика'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Верхняя панель
-              // Container(
-              //   width: double.infinity,
-              //   height: 120,
-              //   decoration: BoxDecoration(
-              //     gradient: const LinearGradient(
-              //       colors: [Color(0xFF9C27B0), Color(0xFFE1BEE7)],
-              //       begin: Alignment.topLeft,
-              //       end: Alignment.bottomRight,
-              //     ),
-              //     borderRadius: const BorderRadius.only(
-              //       bottomLeft: Radius.circular(20),
-              //       bottomRight: Radius.circular(20),
-              //     ),
-              //   ),
-              //   child: const Center(
-              //     child: Text(
-              //       'Аналитика',
-              //       style: TextStyle(
-              //         color: Colors.white,
-              //         fontSize: 28,
-              //         fontWeight: FontWeight.bold,
-              //       ),
-              //     ),
-              //   ),
-              // ),
-
-              const SizedBox(height: 20),
-
-              // Общая сумма
-              Text(
-                '${totalAmount.toInt()} ₽',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF7B1FA2),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              
-
-              // ВЫБОР КОНКРЕТНОГО ПЕРИОДА
-              _buildPeriodSelector(),
-
-              const SizedBox(height: 20),
-
-              // Диаграмма банковского стиля
-              SizedBox(
-                height: 280,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 240,
-                      height: 240,
-                      child: CustomPaint(
-                        painter: BankingPieChartPainter(
-                          currentCategories, 
-                          totalAmount,
-                          strokeWidth: 16.0,
-                        ),
-                      ),
-                    ),
-                    
-                    // Центральный текст
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${totalAmount.toInt()} ₽',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF7B1FA2),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          selectedPeriod == 'месяц' 
-                              ? selectedMonth
-                              : selectedPeriod == 'квартал'
-                                  ? selectedQuarter
-                                  : selectedYear,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-              // ВЫБОР ПЕРИОДА (месяц/квартал/год)
-              _buildPeriodTabs(),
-
-              const SizedBox(height: 10),
-
-
-//_______________________________________________________
-
-
-              // Список категорий (кликабельный)
-              Container(
-                margin: const EdgeInsets.all(20),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: currentCategories.map((category) {
-                    final percentage = (category.amount / totalAmount * 100).toInt();
-                    return InkWell(
-                      onTap: () => _navigateToCategoryDetail(category.name),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: category.color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                category.name,
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                            ),
-                            Text(
-                              '${category.amount} ₽',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '$percentage%',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.arrow_forward_ios,
-                              size: 14,
-                              color: Colors.grey,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    key: _scaffoldKey,
+    backgroundColor: const Color.fromARGB(248, 223, 218, 245),
+    appBar: AppBar(
+      title: const Text(
+        'Аналитика',
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
         ),
       ),
+      centerTitle: true,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
+      elevation: 0,
+      actions: [
+        if (!kIsWeb)
+          IconButton(
+            icon: const Icon(Icons.menu, color: Colors.black),
+            onPressed: () => _scaffoldKey.currentState!.openEndDrawer(),
+          ),
+      ],
+    ),
+    
+    endDrawer: kIsWeb ? null : const AppDrawer(
+      currentScreen: AppScreen.analytics,
+      isMobile: true,
+    ),
+    
+    body: kIsWeb 
+      ? Row(
+          children: [
+            const AppDrawer(
+              currentScreen: AppScreen.analytics,
+              isMobile: false,
+            ),
+            Expanded(
+              child: _buildBody(context),
+            ),
+          ],
+        )
+      : _buildBody(context),
+  );
+}
+
+  Widget _buildBody(BuildContext context) {
+    return Consumer<AnalyticsProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (provider.error != null) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                const Text(
+                  'Ошибка загрузки аналитики',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    provider.error!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: provider.loadGeneralAnalytics,
+                  child: const Text('Повторить'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: kIsWeb ? 32 : 16,
+              vertical: kIsWeb ? 24 : 16,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Заголовок с общей суммой
+                _buildHeader(provider),
+                const SizedBox(height: kIsWeb ? 32 : 24),
+                
+                // Переключатель периода
+                _buildPeriodSelector(provider),
+                const SizedBox(height: kIsWeb ? 40 : 32),
+                
+                // Круговая диаграмма по категориям
+                _buildPieChart(provider),
+                const SizedBox(height: kIsWeb ? 40 : 32),
+                
+                // Список категорий
+                _buildCategoriesList(context, provider),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildPeriodTabs() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 2),
+  Widget _buildHeader(AnalyticsProvider provider) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${provider.totalAmount.toStringAsFixed(0)} ₽',
+          style: TextStyle(
+            fontSize: kIsWeb ? 40 : 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
           ),
-        ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _getCurrentPeriodText(provider),
+          style: TextStyle(
+            fontSize: kIsWeb ? 18 : 16,
+            color: Colors.grey[600],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPeriodSelector(AnalyticsProvider provider) {
+    final periods = ['месяц', 'квартал', 'год'];
+    final currentType = provider.currentPeriod.type;
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        children: [
-          _buildPeriodTab('месяц'),
-          _buildPeriodTab('квартал'),
-          _buildPeriodTab('год'),
-        ],
-      ),
-    );
-  }
-//______________________________________________________________
-
-
-  Widget _buildPeriodTab(String period) {
-    final isSelected = selectedPeriod == period;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            selectedPeriod = period;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF7B1FA2) : Colors.white,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Text(
-            period,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: isSelected ? Colors.white : const Color(0xFF7B1FA2),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPeriodSelector() {
-    switch (selectedPeriod) {
-      case 'месяц':
-        return MonthSelector(
-          selectedMonth: selectedMonth,
-          onMonthChanged: (month) {
-            setState(() {
-              selectedMonth = month;
-            });
-          },
-        );
-      case 'квартал':
-        return QuarterSelector(
-          selectedQuarter: selectedQuarter,
-          onQuarterChanged: (quarter) {
-            setState(() {
-              selectedQuarter = quarter;
-            });
-          },
-        );
-      case 'год':
-        return YearSelector(
-          selectedYear: selectedYear,
-          onYearChanged: (year) {
-            setState(() {
-              selectedYear = year;
-            });
-          },
-        );
-      default:
-        return const SizedBox();
-    }
-  }
-}
-
-class CategoryDetailScreen extends StatelessWidget {
-  final String categoryName;
-  final List<SubCategory> subCategories;
-  final String selectedPeriod;
-  final String selectedMonth;
-  final String selectedQuarter;
-  final String selectedYear;
-
-  const CategoryDetailScreen({
-    super.key,
-    required this.categoryName,
-    required this.subCategories,
-    required this.selectedPeriod,
-    required this.selectedMonth,
-    required this.selectedQuarter,
-    required this.selectedYear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final totalAmount = subCategories.fold(0.0, (sum, sub) => sum + sub.amount);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Аналитика: $categoryName'),
-        backgroundColor: const Color(0xFF9C27B0),
-        foregroundColor: Colors.white,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
-
-              // Общая сумма по категории
-              Text(
-                '${totalAmount.toInt()} ₽',
-                style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF7B1FA2),
+        children: periods.map((type) {
+          final isSelected = currentType == type;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => provider.setPeriodType(type),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: kIsWeb ? 16 : 12,
+                  horizontal: 8,
                 ),
-              ),
-
-              const SizedBox(height: 10),
-              Text(
-                'Всего за $categoryName',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey[600],
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // Селектор периода для детального экрана
-              _buildDetailPeriodSelector(),
-
-              const SizedBox(height: 20),
-//______________________________________________
-
-
-              // Диаграмма для подкатегорий
-              SizedBox(
-                height: 280,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 240,
-                      height: 240,
-                      child: CustomPaint(
-                        painter: BankingPieChartPainter(
-                          subCategories.map((sub) => Category(
-                            name: sub.name,
-                            amount: sub.amount.toDouble(),
-                            color: sub.color,
-                            icon: Icons.circle,
-                          )).toList(),
-                          totalAmount,
-                          strokeWidth: 16.0,
-                        ),
-                      ),
-                    ),
-                    
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '${totalAmount.toInt()} ₽',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF7B1FA2),
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          categoryName,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Список подкатегорий
-              Container(
-                margin: const EdgeInsets.all(20),
-                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+                  color: isSelected ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
                 ),
-                child: Column(
-                  children: subCategories.map((subCategory) {
-                    final percentage = (subCategory.amount / totalAmount * 100).toInt();
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: subCategory.color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              subCategory.name,
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ),
-                          Text(
-                            '${subCategory.amount} ₽',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '$percentage%',
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-
-                  }).toList(),
+                child: Text(
+                  type,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: kIsWeb ? 16 : 14,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected ? Colors.black : Colors.grey[600],
+                  ),
                 ),
               ),
-            ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildPieChart(AnalyticsProvider provider) {
+    if (provider.generalAnalytics.isEmpty) {
+      return Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Center(
+          child: Text('Нет данных для диаграммы'),
+        ),
+      );
+    }
+
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
+        ],
+      ),
+      child: PieChart(
+        PieChartData(
+          pieTouchData: PieTouchData(
+            touchCallback: (FlTouchEvent event, pieTouchResponse) {
+              setState(() {
+                if (!event.isInterestedForInteractions ||
+                    pieTouchResponse == null ||
+                    pieTouchResponse.touchedSection == null) {
+                  _touchedIndex = -1;
+                  return;
+                }
+                _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+              });
+            },
+          ),
+          sectionsSpace: 2,
+          centerSpaceRadius: 50,
+          sections: provider.generalAnalytics.asMap().entries.map((entry) {
+            final index = entry.key;
+            final category = entry.value;
+            final isTouched = index == _touchedIndex;
+            final fontSize = isTouched ? 16.0 : 14.0;
+            final radius = isTouched ? 70.0 : 60.0;
+
+            return PieChartSectionData(
+              color: category.color,
+              value: category.total,
+              title: '${category.percentage.toInt()}%',
+              radius: radius,
+              titleStyle: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            );
+          }).toList(),
         ),
       ),
     );
   }
 
-  Widget _buildDetailPeriodSelector() {
-    switch (selectedPeriod) {
-      case 'месяц':
-        return MonthSelector(
-          selectedMonth: selectedMonth,
-          onMonthChanged: (month) {
-            // Можно добавить обновление данных при изменении месяца
-          },
-        );
-      case 'квартал':
-        return QuarterSelector(
-          selectedQuarter: selectedQuarter,
-          onQuarterChanged: (quarter) {
-            // Можно добавить обновление данных при изменении квартала
-          },
-        );
-      case 'год':
-        return YearSelector(
-          selectedYear: selectedYear,
-          onYearChanged: (year) {
-            // Можно добавить обновление данных при изменении года
-          },
-        );
-      default:
-        return const SizedBox();
-    }
-  }
-}
-
-class Category {
-  final String name;
-  final double amount;
-  final Color color;
-  final IconData icon;
-
-  const Category({
-    required this.name,
-    required this.amount,
-    required this.color,
-    required this.icon,
-  });
-}
-
-class SubCategory {
-  final String name;
-  final int amount;
-  final Color color;
-
-  const SubCategory({
-    required this.name,
-    required this.amount,
-    required this.color,
-  });
-}
-
-class BankingPieChartPainter extends CustomPainter {
-  final List<Category> categories;
-  final double totalAmount;
-  final double strokeWidth;
-
-  const BankingPieChartPainter(
-    this.categories,
-    this.totalAmount, {
-    this.strokeWidth = 15.0,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
-    
-    double startAngle = -90.0;
-
-    // Фоновая окружность (серый фон)
-    final backgroundPaint = Paint()
-      ..color = Colors.grey[200]!
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round
-      ..isAntiAlias = true;
-
-    canvas.drawCircle(center, radius, backgroundPaint);
-
-    // Рисуем сегменты как прогресс-бары
-    for (final category in categories) {
-      final percentage = category.amount / totalAmount;
-      final sweepAngle = percentage * 360;
-
-      final segmentPaint = Paint()
-        ..color = category.color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round
-        ..isAntiAlias = true;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle * (pi / 180),
-        sweepAngle * (pi / 180),
-        false,
-        segmentPaint,
+  Widget _buildCategoriesList(BuildContext context, AnalyticsProvider provider) {
+    if (provider.generalAnalytics.isEmpty) {
+      return const Center(
+        child: Text('Нет категорий для отображения'),
       );
+    }
 
-      startAngle += sweepAngle;
+    return Column(
+      children: provider.generalAnalytics.map((category) {
+        return GestureDetector(
+          onTap: () => _navigateToCategoryDetail(context, category.category),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: EdgeInsets.all(kIsWeb ? 20 : 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: kIsWeb ? 48 : 40,
+                  height: kIsWeb ? 48 : 40,
+                  decoration: BoxDecoration(
+                    color: category.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    category.icon,
+                    color: category.color,
+                    size: kIsWeb ? 28 : 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getCategoryDisplayName(category.category),
+                        style: TextStyle(
+                          fontSize: kIsWeb ? 18 : 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${category.total.toStringAsFixed(1)} ₽',
+                        style: TextStyle(
+                          fontSize: kIsWeb ? 16 : 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '${category.percentage.toInt()}%',
+                  style: TextStyle(
+                    fontSize: kIsWeb ? 18 : 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.grey,
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  void _navigateToCategoryDetail(BuildContext context, SubscriptionCategory category) {
+    final categoryName = _getCategoryApiName(category);
+    final provider = context.read<AnalyticsProvider>();
+    
+    provider.loadCategoryAnalytics(categoryName).then((_) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CategoryDetailScreen(
+            category: category,
+            categoryName: _getCategoryDisplayName(category),
+          ),
+        ),
+      );
+    });
+  }
+
+  String _getCategoryApiName(SubscriptionCategory category) {
+    switch (category) {
+      case SubscriptionCategory.music: return 'music';
+      case SubscriptionCategory.video: return 'video';
+      case SubscriptionCategory.books: return 'books';
+      case SubscriptionCategory.games: return 'games';
+      case SubscriptionCategory.education: return 'education';
+      case SubscriptionCategory.social: return 'social';
+      case SubscriptionCategory.other: return 'other';
+      default: return 'other';
     }
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class MonthSelector extends StatefulWidget {
-  final String selectedMonth;
-  final Function(String) onMonthChanged;
-
-  const MonthSelector({
-    super.key,
-    required this.selectedMonth,
-    required this.onMonthChanged,
-  });
-
-  @override
-  MonthSelectorState createState() => MonthSelectorState();
-}
-
-class MonthSelectorState extends State<MonthSelector> {
-  bool _expanded = false;
-  
-  final List<String> months = [
-    'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
-    'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'
-  ];
-
-//__________________________________________________
-
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            title: Text(
-              widget.selectedMonth,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            trailing: Icon(
-              _expanded ? Icons.expand_less : Icons.expand_more,
-              color: const Color(0xFF7B1FA2),
-            ),
-            onTap: () {
-              setState(() {
-                _expanded = !_expanded;
-              });
-            },
-          ),
-          
-          if (_expanded)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              height: 200,
-              child: ListView.builder(
-                itemCount: months.length,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text(months[index]),
-                    onTap: () {
-                      widget.onMonthChanged(months[index]);
-                      setState(() {
-                        _expanded = false;
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
+  String _getCurrentPeriodText(AnalyticsProvider provider) {
+    final period = provider.currentPeriod;
+    
+    if (period.type == 'month' && period.month != null) {
+      final months = [
+        'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+        'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь'
+      ];
+      return months[period.month! - 1];
+    } else if (period.type == 'quarter' && period.quarter != null) {
+      return '${period.quarter}-й квартал ${period.year}';
+    } else {
+      return '${period.year} год';
+    }
   }
-}
 
-class QuarterSelector extends StatefulWidget {
-  final String selectedQuarter;
-  final Function(String) onQuarterChanged;
-
-  const QuarterSelector({
-    super.key,
-    required this.selectedQuarter,
-    required this.onQuarterChanged,
-  });
-
-  @override
-  QuarterSelectorState createState() => QuarterSelectorState();
-}
-
-class QuarterSelectorState extends State<QuarterSelector> {
-  bool _expanded = false;
-  
-  final List<String> quarters = [
-    '1 квартал',
-    '2 квартал', 
-    '3 квартал',
-    '4 квартал'
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            title: Text(
-              widget.selectedQuarter,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            trailing: Icon(
-              _expanded ? Icons.expand_less : Icons.expand_more,
-              color: const Color(0xFF7B1FA2),
-            ),
-            onTap: () {
-              setState(() {
-                _expanded = !_expanded;
-              });
-            },
-          ),
-          
-          if (_expanded)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              height: 160,
-              child: ListView.builder(
-                itemCount: quarters.length,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text(quarters[index]),
-                    onTap: () {
-                      widget.onQuarterChanged(quarters[index]);
-                      setState(() {
-                        _expanded = false;
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class YearSelector extends StatefulWidget {
-  final String selectedYear;
-  final Function(String) onYearChanged;
-
-
-  const YearSelector({
-    super.key,
-    required this.selectedYear,
-    required this.onYearChanged,
-  });
-
-  @override
-  YearSelectorState createState() => YearSelectorState();
-}
-
-class YearSelectorState extends State<YearSelector> {
-  bool _expanded = false;
-  
-  final List<String> years = [
-    '2024',
-    '2023',
-    '2022',
-    '2021',
-    '2020'
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          ListTile(
-            title: Text(
-              widget.selectedYear,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            trailing: Icon(
-              _expanded ? Icons.expand_less : Icons.expand_more,
-              color: const Color(0xFF7B1FA2),
-            ),
-            onTap: () {
-              setState(() {
-                _expanded = !_expanded;
-              });
-            },
-          ),
-          
-          if (_expanded)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              height: 200,
-              child: ListView.builder(
-                itemCount: years.length,
-                itemBuilder: (context, index) {
-                  return ListTile(
-                    title: Text(years[index]),
-                    onTap: () {
-                      widget.onYearChanged(years[index]);
-                      setState(() {
-                        _expanded = false;
-                      });
-                    },
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
+  String _getCategoryDisplayName(SubscriptionCategory category) {
+    switch (category) {
+      case SubscriptionCategory.music: return 'Музыка';
+      case SubscriptionCategory.video: return 'Кино';
+      case SubscriptionCategory.books: return 'Книги';
+      case SubscriptionCategory.games: return 'Игры';
+      case SubscriptionCategory.education: return 'Обучение';
+      case SubscriptionCategory.social: return 'Соцсети';
+      case SubscriptionCategory.other: return 'Прочее';
+      default: return 'Неизвестно';
+    }
   }
 }

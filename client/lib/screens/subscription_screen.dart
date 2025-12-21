@@ -4,12 +4,10 @@ import 'package:provider/provider.dart';
 import '../widgets/add_subscription_modal.dart';
 import '../widgets/subscription_item.dart';
 import '../providers/subscription_provider.dart';
-import '../providers/auth_provider.dart';
-import 'profile_screen.dart';
-import 'analytics_screen.dart';
-import 'notifications_screen.dart';
 import 'archive_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../widgets/app_drawer.dart';
+
 
 class SubscriptionsScreen extends StatefulWidget {
   SubscriptionsScreen({Key? key}) : super(key: key);
@@ -118,7 +116,6 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   @override
 Widget build(BuildContext context) {
   final subscriptionProvider = context.watch<SubscriptionProvider>();
-  final authProvider = context.watch<AuthProvider>();
 
   return Scaffold(
     key: _scaffoldKey,
@@ -144,25 +141,29 @@ Widget build(BuildContext context) {
     ),
     
     // Боковая панель ТОЛЬКО для мобильных
-    endDrawer: kIsWeb ? null : _buildDrawer(context, authProvider),
+    endDrawer: kIsWeb ? null :  const AppDrawer(
+      currentScreen: AppScreen.subscriptions,
+      isMobile: true,
+    ),
     
-    // Основное тело
     body: kIsWeb 
-      ? Row( // Для веба: Row с постоянной панелью
+      ? Row(
           children: [
-            _buildPersistentDrawer(context, authProvider),
+            const AppDrawer(
+              currentScreen: AppScreen.subscriptions,
+              isMobile: false,
+            ),
             Expanded(
               child: _buildBody(subscriptionProvider),
             ),
           ],
         )
-      : _buildBody(subscriptionProvider), // Для мобильных: обычный контент
+      : _buildBody(subscriptionProvider),
     
-    // Кнопка добавления
     floatingActionButton: FloatingActionButton(
       onPressed: _showAddSubscriptionModal,
       backgroundColor: Colors.blue,
-      child: Icon(Icons.add, color: Colors.white, size: 28),
+      child: const Icon(Icons.add, color: Colors.white, size: 28),
     ),
     floatingActionButtonLocation: kIsWeb
       ? FloatingActionButtonLocation.endFloat
@@ -398,307 +399,9 @@ Widget build(BuildContext context) {
                 },
               ),
             ),
-        ],
+        ]
+        ,
       ),
-    );
-  }
-
-  // Функция для построения боковой панели
-  Widget _buildDrawer(BuildContext context, AuthProvider authProvider) {
-    return Drawer(
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Заголовок боковой панели
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(24),
-              color: Colors.blue,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 25,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 25,
-                      color: Colors.blue,
-                    ),
-                  ),
-                  SizedBox(height: 12),
-                  Text(
-                    authProvider.user?.email ?? 'Пользователь',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    authProvider.isAuthenticated ? 'Аккаунт активен' : 'Не авторизован',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Пункты меню
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  _buildDrawerItem(
-                    icon: Icons.subscriptions,
-                    title: 'Подписки',
-                    onTap: () {
-                      Navigator.pop(context);
-                    },
-                  ),
-                  // _buildDrawerItem(
-                  //   icon: Icons.archive,
-                  //   title: 'Архив подписок',
-                  //   badge: context.read<SubscriptionProvider>().archivedSubscriptions.length,
-                  //   onTap: () {
-                  //     Navigator.pop(context);
-                  //     Navigator.push(
-                  //       context,
-                  //       MaterialPageRoute(builder: (context) => ArchiveScreen()),
-                  //     );
-                  //   },
-                  // ),
-                  _buildDrawerItem(
-                    icon: Icons.person,
-                    title: 'Личный кабинет',
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => ProfileScreen()),
-                      );
-                    },
-                  ),                   
-                  _buildDrawerItem(
-                    icon: Icons.analytics,
-                    title: 'Аналитика',
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => AnalyticsScreen()),
-                      );
-                    },
-                  ),
-                  _buildDrawerItem(
-                    icon: Icons.notifications,
-                    title: 'Уведомления',
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => NotificationsScreen()),
-                      );
-                    },
-                  ),
-                  
-                  // Разделитель
-                  Divider(height: 24, thickness: 1),
-                  
-                  _buildDrawerItem(
-                    icon: Icons.exit_to_app,
-                    title: 'Выйти',
-                    onTap: () {
-                      Navigator.pop(context);
-                      _showLogoutDialog(context, authProvider);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Вспомогательная функция для создания пунктов меню
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    int? badge,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey[700]),
-      title: Text(
-        title,
-        style: TextStyle(fontSize: 16),
-      ),
-      trailing: badge != null && badge > 0
-          ? CircleAvatar(
-              radius: 12,
-              backgroundColor: Colors.red,
-              child: Text(
-                badge > 99 ? '99+' : badge.toString(),
-                style: TextStyle(fontSize: 10, color: Colors.white),
-              ),
-            )
-          : null,
-      onTap: onTap,
-    );
-  }
-
-Widget _buildPersistentDrawer(BuildContext context, AuthProvider authProvider) {
-  return Container(
-    width: 280, // Фиксированная ширина для веб-панели
-    color: Colors.white,
-    child: SafeArea(
-      child: Column(
-        children: [
-          // Заголовок панели (можно упростить для веба)
-          Container(
-            padding: EdgeInsets.all(24),
-            color: Colors.blue,
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person,
-                    size: 25,
-                    color: Colors.blue,
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  authProvider.user?.email ?? 'Пользователь',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-          
-          // Пункты меню
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _buildPersistentDrawerItem(
-                  icon: Icons.subscriptions,
-                  title: 'Подписки',
-                  onTap: () {
-                    // Уже на экране подписок
-                  },
-                ),
-                _buildPersistentDrawerItem(
-                  icon: Icons.person,
-                  title: 'Личный кабинет',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => ProfileScreen()),
-                    );
-                  },
-                ),
-                _buildPersistentDrawerItem(
-                  icon: Icons.analytics,
-                  title: 'Аналитика',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => AnalyticsScreen()),
-                    );
-                  },
-                ),
-                _buildPersistentDrawerItem(
-                  icon: Icons.notifications,
-                  title: 'Уведомления',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => NotificationsScreen()),
-                    );
-                  },
-                ),
-                Divider(height: 24, thickness: 1),
-                _buildPersistentDrawerItem(
-                  icon: Icons.exit_to_app,
-                  title: 'Выйти',
-                  onTap: () {
-                    _showLogoutDialog(context, authProvider);
-                  },
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-// Вспомогательный метод для пунктов постоянного меню
-Widget _buildPersistentDrawerItem({
-  required IconData icon,
-  required String title,
-  required VoidCallback onTap,
-}) {
-  return InkWell(
-    onTap: onTap,
-    child: Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey[700], size: 22),
-          SizedBox(width: 16),
-          Text(
-            title,
-            style: TextStyle(fontSize: 15),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-
-  // Функция для показа диалога выхода
-  void _showLogoutDialog(BuildContext context, AuthProvider authProvider) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Выход'),
-          content: Text('Вы уверены, что хотите выйти?'),
-          actions: [
-            TextButton(
-              child: Text('Отмена'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text('Выйти', style: TextStyle(color: Colors.red)),
-              onPressed: () {
-                Navigator.of(context).pop();
-                authProvider.logout();
-                // Здесь можно добавить навигацию на экран входа
-                _showSnackBar('Вы вышли из системы');
-              },
-            ),
-          ],
-        );
-      },
     );
   }
 }

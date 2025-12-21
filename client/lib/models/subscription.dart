@@ -152,13 +152,13 @@ class Subscription {
     };
   }
 
-  // Для архивации подписки
-  Map<String, dynamic> toArchiveJson() {
-    return {
-      'confirm': true,
-      'archivedDate': archivedDate?.toIso8601String(),
-    };
-  }
+  // Для архивации подписки - не исопользуется, см. сервис
+  // Map<String, dynamic> toArchiveJson() {
+  //   return {
+  //     'confirm': true,
+  //     'archivedDate': archivedDate?.toIso8601String(),
+  //   };
+  // }
 
 
     // ========== Вспомогательные методы ==========

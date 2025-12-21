@@ -1,13 +1,27 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/subscription.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 // Сервис для работы с API подписок
 class SubscriptionService {
-  // static const String _baseUrl = 'http://10.0.2.2:8000/api'; // Для Android эмулятора
-  static const String _baseUrl = 'http://localhost:8000/api'; // Для iOS/Web
-  
-  final String? _authToken;
+
+  // Базовый URL API в зависимости от платформы  
+  String get _baseUrl {
+    if (kIsWeb) {
+      // Для web - localhost работает
+      return 'http://localhost:8000/api';
+    } else if (Platform.isAndroid) {
+      // Для Android эмулятора
+      return 'http://10.0.2.2:8000/api';
+    } else {
+      // Для iOS симулятора и реальных устройств
+      return 'http://localhost:8000/api';
+    }
+  }
+
+  final String? _authToken;  // Приватное поле токена авторизации
 
   SubscriptionService({String? authToken}) : _authToken = authToken;
 
