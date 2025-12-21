@@ -22,19 +22,15 @@ def get_db():
         db.close()
 
 
-
 # ---------------------------------------
 # 1. REGISTER (регистрация)
 # ---------------------------------------
 @router.post("/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    # ✅ Pydantic автоматически проверит совпадение паролей через валидатор
-    # ✅ ДОБАВЬТЕ ЭТО ПЕРЕД ВСЕМ
     print("=" * 50)
     print("✅ UserRegister model successfully validated!")
     print(f"   Email: {user.email}")
     print(f"   Password: {'*' * len(user.password)} (length: {len(user.password)})")
-    print(f"   Confirm password: {'*' * len(user.confirm_password)}")
     print("=" * 50)
     # Проверяем существование пользователя
     existing_user = db.query(User).filter(User.email == user.email).first()
@@ -172,8 +168,6 @@ def get_profile(credentials: HTTPAuthorizationCredentials = Depends(security),
 @router.post("/logout")
 def logout():
     return {"message": "Logged out (token removed on client side)"}
-
-security = [{"oauth2_scheme": []}]
 
 @router.get("/me")
 def get_me(user: User = Depends(get_current_user)):
