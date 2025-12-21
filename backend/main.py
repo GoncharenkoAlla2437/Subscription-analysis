@@ -4,6 +4,7 @@ import logging
 
 # Импортируем роутер из auth.py
 from backend.routes.auth import router as auth_router
+from backend.routes.subs import router as subs_router
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -22,6 +23,7 @@ app.add_middleware(
 
 # Подключаем роутер аутентификации
 app.include_router(auth_router)
+app.include_router(subs_router)
 
 # Базовые эндпоинты
 @app.get("/")
