@@ -13,7 +13,7 @@ class SubCategoryEnum(str, Enum):
     other = "other"
 
 class SubPeriodEnum(str, Enum):
-    mounthly = "mounthly"
+    monthly = "monthly"
     quarterly = "quarterly"
     yearly = "yearly"
 
@@ -25,7 +25,7 @@ class CreateSubscriptionRequest(BaseModel):
     archivedDate: Optional[date] = None
     category: SubCategoryEnum = Field(..., description="Категория подписки")
     notifyDays: Optional[int] = Field(default=3, ge=1, le=30, description="Дней до уведомления")
-    billingCycle: Optional[SubPeriodEnum] = Field(default=SubPeriodEnum.mounthly, description="Период оплаты")
+    billingCycle: Optional[SubPeriodEnum] = Field(default=SubPeriodEnum.monthly, description="Период оплаты")
     autoRenewal: Optional[bool] = Field(default=False, description="Автопродление подписки")
     notificationsEnabled: Optional[bool] = Field(default=True, description="Включены ли уведомления")
     
@@ -38,7 +38,7 @@ class CreateSubscriptionRequest(BaseModel):
                 "connectedDate": "2024-01-15",
                 "category": "video",
                 "notifyDays": 3,
-                "billingCycle": "mounthly",
+                "billingCycle": "monthly",
                 "autoRenewal": False,
                 "notificationsEnabled": True
             }

@@ -15,7 +15,7 @@ class Sub_category(str, Enum):
     other = "other"
 
 class Sub_period(str, Enum):
-    mounthly = "mounthly"
+    monthly = "monthly"
     quarterly = "quarterly"
     yearly = "yearly"
 
@@ -35,8 +35,8 @@ class PriceHistory(Base):
 class Subscription(Base):
     __tablename__ = "subscriptions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    userId = Column(Integer, ForeignKey("users.id"), primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    userId = Column(Integer, ForeignKey("users.id"), index=True)
     name = Column(String, unique=True, index=True)
     currentAmount = Column(Integer, nullable=False, default=0) #стоимость подписки
     nextPaymentDate = Column(Date) #дата следующего списания, высчитывается по периоду обновления, может удалю
@@ -44,7 +44,7 @@ class Subscription(Base):
     archivedDate = Column(Date, nullable=True) #дата архивирования подписки
     category = Column(SQLEnum(Sub_category), nullable=False)
     notifyDays = Column(Integer, nullable=False, default=3) #За сколько дней уведомлять об окончании подписки (мин и макс в отдельной функции)
-    billingCycle = Column(SQLEnum(Sub_period), nullable=False, default="mounthly") #период обновления
+    billingCycle = Column(SQLEnum(Sub_period), nullable=False, default="monthly") #период обновления
     autoRenewal = Column(Boolean, default=False) # автопродлять или сразу кидать в архив - если во фронте добавим такую галочку при создании подписки
     notificationsEnabled = Column(Boolean, default=True) # отправлять ли уведомления - опять же нужна галочка во фронте
     createdAt = Column(DateTime, default=datetime.utcnow)

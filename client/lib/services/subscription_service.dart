@@ -74,29 +74,85 @@ class SubscriptionService {
 
   // ========== POST: Создать новую подписку ==========
   Future<Subscription> createSubscription(Subscription subscription) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/subscriptions'),
-        headers: _headers,
-        body: json.encode(subscription.toCreateJson()),
-      );
+  try {
+    print('📤 [SubscriptionService] Отправляю запрос на создание подписки...');
+    final subscriptionData = subscription.toCreateJson();
+    print('📤 Данные для отправки: ${json.encode(subscriptionData)}');
+    print('📤 URL: $_baseUrl/subscriptions');
+    
+    final response = await http.post(
+      Uri.parse('$_baseUrl/subscriptions'),
+      headers: _headers,
+      body: json.encode(subscriptionData),
+    );
 
-      if (response.statusCode == 201) {
-        return Subscription.fromJson(json.decode(response.body));
-      } else if (response.statusCode == 400) {
-        final error = json.decode(response.body);
-        throw Exception(error['message'] ?? 'Ошибка валидации данных');
-      } else if (response.statusCode == 401) {
-        throw Exception('Неавторизован. Пожалуйста, войдите снова.');
-      } else {
-        throw Exception('Ошибка создания подписки: ${response.statusCode}');
+    print('📥 [SubscriptionService] Получен ответ от сервера:');
+    print('📥 Status Code: ${response.statusCode}');
+    print('📥 Response Body: ${response.body}');
+    print('📥 Response Headers: ${response.headers}');
+
+    if (response.statusCode == 201) {
+      try {
+        print('🔄 [SubscriptionService] Пытаюсь распарсить JSON ответ...');
+        final responseBody = response.body;
+        final decodedJson = json.decode(responseBody) as Map<String, dynamic>;
+        print('✅ [SubscriptionService] JSON успешно распарсен');
+        print('📊 Содержимое ответа:');
+        decodedJson.forEach((key, value) {
+          print('   $key: $value (тип: ${value.runtimeType})');
+        });
+        
+        final createdSubscription = Subscription.fromJson(decodedJson);
+        print('✅ [SubscriptionService] Subscription.fromJson() успешно выполнен');
+        return createdSubscription;
+      } catch (e) {
+        print('❌ [SubscriptionService] Ошибка при парсинге ответа: $e');
+        print('❌ Сырой ответ: ${response.body}');
+        throw Exception('Ошибка при обработке ответа сервера: $e');
       }
-    } catch (e) {
-      print('Ошибка в createSubscription: $e');
-      rethrow;
+    } else if (response.statusCode == 400) {
+      try {
+        final error = json.decode(response.body) as Map<String, dynamic>;
+        final errorMessage = error['message'] ?? error['detail'] ?? 'Ошибка валидации данных';
+        print('❌ [SubscriptionService] Ошибка 400: $errorMessage');
+        throw Exception(errorMessage);
+      } catch (e) {
+        print('❌ [SubscriptionService] Ошибка при парсинге ошибки 400: $e');
+        throw Exception('Ошибка валидации данных: ${response.body}');
+      }
+    } else if (response.statusCode == 401) {
+      print('🔒 [SubscriptionService] Ошибка 401: Неавторизован');
+      throw Exception('Неавторизован. Пожалуйста, войдите снова.');
+    } else if (response.statusCode == 422) {
+      print('❌ [SubscriptionService] Ошибка 422: Неверные данные');
+      try {
+        final error = json.decode(response.body) as Map<String, dynamic>;
+        final details = error['detail'] ?? 'Неверные данные';
+        print('❌ Детали ошибки: $details');
+        throw Exception('Неверные данные: $details');
+      } catch (e) {
+        throw Exception('Ошибка валидации: ${response.body}');
+      }
+    } else if (response.statusCode == 500) {
+      print('🔥 [SubscriptionService] Ошибка 500: Внутренняя ошибка сервера');
+      throw Exception('Внутренняя ошибка сервера. Попробуйте позже.');
+    } else {
+      print('⚠️ [SubscriptionService] Неизвестный статус код: ${response.statusCode}');
+      print('⚠️ Response: ${response.body}');
+      throw Exception('Ошибка создания подписки: ${response.statusCode}');
     }
+  } on http.ClientException catch (e) {
+    print('🌐 [SubscriptionService] Ошибка сети: $e');
+    throw Exception('Ошибка сети. Проверьте подключение к интернету.');
+  } on FormatException catch (e) {
+    print('📄 [SubscriptionService] Ошибка формата JSON: $e');
+    throw Exception('Некорректный ответ от сервера.');
+  } catch (e) {
+    print('💥 [SubscriptionService] Неожиданная ошибка в createSubscription: $e');
+    print('💥 Stack trace: ${e.toString()}');
+    rethrow;
   }
-
+}
   // ========== PATCH: Обновить подписку ==========
   Future<Subscription> updateSubscription(Subscription subscription) async {
     try {

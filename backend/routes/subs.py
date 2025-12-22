@@ -96,7 +96,7 @@ def create_subscription(
     try:
         db.add(new_subscription)
         db.commit()
-        db.refresh(new_subscription)
+        # db.refresh(new_subscription)
         
         # Автоматически создаем первую запись в истории цен
         price_history_item = None
