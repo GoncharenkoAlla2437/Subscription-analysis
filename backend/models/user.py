@@ -11,3 +11,4 @@ class User(Base):
 
      # Добавляем связь с подписками
     subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship( "Notification", back_populates="user", cascade="all, delete-orphan" )

@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-
+from sqlalchemy.orm import Session
 from backend.routes.auth import router as auth_router
 from backend.routes.subs import router as subs_router
+from backend.routes.notifications import router as notifications_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(subs_router)
+app.include_router(notifications_router)
 
 @app.get("/")
 async def root():
@@ -28,6 +30,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -5,6 +5,7 @@ from backend.models.user import User
 from backend.utils.security import  hash_password, verify_password, create_access_token, create_refresh_token,decode_refresh_token, decode_token
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordRequestForm
 from ..schemas.user import UserRegister, UserLogin
+from backend.models.notification import Notification
 security = HTTPBearer()
 
 router = APIRouter(
