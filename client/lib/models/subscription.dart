@@ -33,11 +33,16 @@ class PriceHistory {
   });
 
   // Преобразование JSON с бэка в Dart объект
-  factory PriceHistory.fromJson(Map<String, dynamic> json) => PriceHistory(
-    startDate: DateTime.parse(json['startDate'] as String),
-    endDate: DateTime.parse(json['endDate'] as String),
-    amount: json['amount'] as int,
-  );
+factory PriceHistory.fromJson(Map<String, dynamic> json) => PriceHistory(
+  startDate: DateTime.parse(json['startDate'].toString()),  // ← toString()
+  
+  // endDate МОЖЕТ БЫТЬ NULL в ответе от бекенда!
+  endDate: json['endDate'] != null 
+      ? DateTime.parse(json['endDate'].toString())  // ← toString()
+      : DateTime.now(),  // значение по умолчанию или startDate
+  
+  amount: (json['amount'] as int?) ?? 0,  // ← проверка на null
+);
   // toJson НЕ нужен, потому что фронтенд не отправляет историю цен на бэкенд
 
   // Для отладки
@@ -94,33 +99,37 @@ class Subscription {
 
   
   // ========== fromJson - для получения данных с бэкенда ==========
-  factory Subscription.fromJson(Map<String, dynamic> json) {
-    return Subscription(
-      // Преобразуем id в строку (если бэкенд возвращает int)
-      id: (json['id']?.toString() ?? ''),
-      name: json['name'] as String,
-      currentAmount: (json['currentAmount'] ?? 0) as int,
-      nextPaymentDate: DateTime.parse(json['nextPaymentDate'] as String),
-      connectedDate: DateTime.parse(json['connectedDate'] as String),
-      archivedDate: json['archivedDate'] != null 
-          ? DateTime.parse(json['archivedDate'] as String) 
-          : null,
-      category: _parseCategory(json['category'] as String),
-      notifyDays: (json['notifyDays'] ?? 3) as int,
-      billingCycle: _parseBillingCycle(json['billingCycle'] as String),
-      notificationsEnabled: (json['notificationsEnabled'] ?? true) as bool,
-      autoRenewal: (json['autoRenewal'] ?? false) as bool,
-      // UI поля вычисляем на фронтенде
-      icon: _getIconForCategory(json['category'] as String),
-      color: _getColorForCategory(json['category'] as String),
-      // История цен
-      priceHistory: json['priceHistory'] != null
-          ? (json['priceHistory'] as List)
-              .map((item) => PriceHistory.fromJson(item as Map<String, dynamic>))
-              .toList()
-          : [],
-    );
-  }
+factory Subscription.fromJson(Map<String, dynamic> json) {
+  return Subscription(
+    // Преобразуем id в строку (если бэкенд возвращает int)
+    id: (json['id']?.toString() ?? ''),
+    name: json['name'] as String,
+    currentAmount: (json['currentAmount'] ?? 0) as int,
+    // nextPaymentDate - МОЖЕТ быть null! Добавляем проверку
+    nextPaymentDate: json['nextPaymentDate'] != null 
+        ? DateTime.parse(json['nextPaymentDate'].toString())
+        : DateTime.now().add(Duration(days: 30)), // значение по умолчанию
+    connectedDate: DateTime.parse(json['connectedDate'].toString()),
+    // archivedDate - МОЖЕТ быть null! УБИРАЕМ as String
+    archivedDate: json['archivedDate'] != null 
+        ? DateTime.parse(json['archivedDate'].toString()) // ← .toString() вместо as String!
+        : null,
+    category: _parseCategory(json['category'] as String),
+    notifyDays: (json['notifyDays'] ?? 3) as int,
+    billingCycle: _parseBillingCycle(json['billingCycle'] as String),
+    notificationsEnabled: (json['notificationsEnabled'] ?? true) as bool,
+    autoRenewal: (json['autoRenewal'] ?? false) as bool,
+    // UI поля вычисляем на фронтенде
+    icon: _getIconForCategory(json['category'] as String),
+    color: _getColorForCategory(json['category'] as String),
+    // История цен
+    priceHistory: json['priceHistory'] != null
+        ? (json['priceHistory'] as List)
+            .map((item) => PriceHistory.fromJson(item as Map<String, dynamic>))
+            .toList()
+        : [],
+  );
+}
 
   // ========== toJson - для отправки на бэкенд ==========
   
