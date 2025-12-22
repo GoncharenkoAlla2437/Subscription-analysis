@@ -9,30 +9,29 @@ class SubscriptionProvider extends ChangeNotifier {
   String? _error;  // Что показывать в случае ошибки
   bool _hasLoaded = false;  // Уже загрузились или нет
 
+  String? _authToken;
+  SubscriptionService? _subscriptionService;
+
   // Геттеры для доступа к состоянию из UI
   List<Subscription> get subscriptions => _subscriptions;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get hasLoaded => _hasLoaded;
+  String? get authToken => _authToken; 
 
-  // Только активные подписки
   List<Subscription> get activeSubscriptions =>
       _subscriptions.where((sub) => !sub.isArchived).toList();
 
-  // Только архивные подписки
   List<Subscription> get archivedSubscriptions =>
       _subscriptions.where((sub) => sub.isArchived).toList();
 
-  // Сервис будет инициализирован с токеном
-  SubscriptionService? _subscriptionService;
-  
+
   void setAuthToken(String? token) {
+    _authToken = token; // ← сохраняем
     _subscriptionService = SubscriptionService(authToken: token);
   }
 
-  // ========== Загрузка подписок ==========
   Future<void> loadSubscriptions({bool forceRefresh = false}) async {
-    // Если уже загружаем или уже загружено (и не форсируем) - пропускаем
     if (_isLoading || (_hasLoaded && !forceRefresh)) return;
 
     _isLoading = true;
@@ -57,7 +56,6 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
-  // ========== Создание подписки ==========
   Future<Subscription?> createSubscription(Subscription subscription) async {
     if (_subscriptionService == null) {
       _error = 'Сервис не инициализирован. Авторизуйтесь.';
@@ -85,7 +83,6 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
-  // ========== Обновление подписки ==========
   Future<Subscription?> updateSubscription(Subscription subscription) async {
     if (_subscriptionService == null) {
       _error = 'Сервис не инициализирован. Авторизуйтесь.';
@@ -118,7 +115,6 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
-  // ========== Архивирование подписки ==========
   Future<bool> archiveSubscription(String subscriptionId) async {
     if (_subscriptionService == null) {
       _error = 'Сервис не инициализирован. Авторизуйтесь.';
@@ -151,7 +147,6 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
-  // ========== Удаление подписки ==========
   Future<bool> deleteSubscription(String subscriptionId) async {
     if (_subscriptionService == null) {
       _error = 'Сервис не инициализирован. Авторизуйтесь.';
@@ -180,7 +175,6 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
-  // ========== Фильтрация по категории ==========
   List<Subscription> filterByCategory(String category) {
     if (category == 'Все') return activeSubscriptions;
     
@@ -198,7 +192,6 @@ class SubscriptionProvider extends ChangeNotifier {
     }).toList();
   }
 
-  // ========== Поиск по названию ==========
   List<Subscription> search(String query) {
     if (query.isEmpty) return activeSubscriptions;
     
@@ -207,13 +200,11 @@ class SubscriptionProvider extends ChangeNotifier {
     ).toList();
   }
 
-  // ========== Очистка ошибки ==========
   void clearError() {
     _error = null;
     notifyListeners();
   }
 
-  // ========== Принудительная перезагрузка ==========
   void refresh() {
     _hasLoaded = false;
     loadSubscriptions(forceRefresh: true);

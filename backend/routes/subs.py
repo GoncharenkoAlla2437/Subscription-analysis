@@ -18,7 +18,7 @@ from backend.schemas.sub import (
 from backend.routes.auth import get_current_user
 
 router = APIRouter()
-
+router = APIRouter(prefix="/api", tags=["subscriptions"])
 @router.post("/subscriptions", 
              response_model=SubscriptionWithPriceHistory,
              status_code=status.HTTP_201_CREATED,
@@ -29,11 +29,7 @@ def create_subscription(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Создать новую подписку.
-    При создании автоматически добавляется первая запись в историю цен.
-    """
-    
+
     print("=" * 50)
     print("✅ CreateSubscriptionRequest model successfully validated!")
     print(f"   User ID: {current_user.id}")
@@ -168,7 +164,7 @@ def get_user_subscriptions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Получить все подписки текущего пользователя"""
+
     
     query = db.query(Subscription).filter(Subscription.userId == current_user.id)
     
@@ -206,7 +202,6 @@ def get_subscription_by_id(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Получить конкретную подписку с историей цен"""
     
     subscription = db.query(Subscription).filter(
         and_(
@@ -262,9 +257,7 @@ def get_subscription_price_history(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Получить историю цен конкретной подписки"""
-    
-    # Проверяем, что подписка принадлежит пользователю
+
     subscription = db.query(Subscription).filter(
         and_(
             Subscription.id == subscription_id,
@@ -277,8 +270,7 @@ def get_subscription_price_history(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Subscription not found"
         )
-    
-    # Получаем историю цен
+
     price_history = db.query(PriceHistory).filter(
         PriceHistory.subscriptionId == subscription_id
     ).order_by(PriceHistory.startDate.desc()).all()

@@ -7,7 +7,7 @@ import '../providers/subscription_provider.dart';
 import 'archive_screen.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../widgets/app_drawer.dart';
-
+import '../providers/auth_provider.dart'; 
 
 class SubscriptionsScreen extends StatefulWidget {
   SubscriptionsScreen({Key? key}) : super(key: key);
@@ -115,7 +115,16 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   @override
 Widget build(BuildContext context) {
-  final subscriptionProvider = context.watch<SubscriptionProvider>();
+  final authProvider = context.read<AuthProvider>();
+  final subscriptionProvider = context.read<SubscriptionProvider>();
+
+  if (authProvider.user?.token != null && 
+      subscriptionProvider.authToken == null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      subscriptionProvider.setAuthToken(authProvider.user!.token);
+      subscriptionProvider.loadSubscriptions();
+    });
+  }
 
   return Scaffold(
     key: _scaffoldKey,
@@ -130,7 +139,6 @@ Widget build(BuildContext context) {
           icon: Icon(Icons.refresh, color: Colors.black),
           onPressed: subscriptionProvider.isLoading ? null : _refreshData,
         ),
-        // Кнопка меню ТОЛЬКО для мобильных
         if (!kIsWeb) IconButton(
           icon: Icon(Icons.menu, color: Colors.black),
           onPressed: () {
@@ -140,7 +148,6 @@ Widget build(BuildContext context) {
       ],
     ),
     
-    // Боковая панель ТОЛЬКО для мобильных
     endDrawer: kIsWeb ? null :  const AppDrawer(
       currentScreen: AppScreen.subscriptions,
       isMobile: true,
@@ -171,16 +178,13 @@ Widget build(BuildContext context) {
   );
 }
 
-  // Построение основного содержимого экрана
   Widget _buildBody(SubscriptionProvider provider) {
-    // Если загрузка и нет данных
     if (provider.isLoading && !provider.hasLoaded) {
       return Center(
         child: CircularProgressIndicator(),
       );
     }
 
-    // Если ошибка
     if (provider.error != null && !provider.hasLoaded) {
       return Center(
         child: Column(
@@ -211,15 +215,12 @@ Widget build(BuildContext context) {
       );
     }
 
-    // Получаем активные подписки и фильтруем
     final activeSubscriptions = provider.activeSubscriptions;
-    
-    // Фильтруем по категории
+
     List<Subscription> filteredSubscriptions = selectedCategory == 'Все'
         ? activeSubscriptions
         : activeSubscriptions.where((sub) => _matchesCategory(sub, selectedCategory)).toList();
-    
-    // Фильтруем по поисковому запросу
+ 
     if (_searchQuery.isNotEmpty) {
       filteredSubscriptions = filteredSubscriptions.where((sub) =>
         sub.name.toLowerCase().contains(_searchQuery.toLowerCase())
@@ -228,9 +229,9 @@ Widget build(BuildContext context) {
 
     return Column(
       children: [
-        // Поисковая строка
+
         Padding(
-          padding: EdgeInsets.all(kIsWeb ? 24 : 16), // Больше отступы для веба
+          padding: EdgeInsets.all(kIsWeb ? 24 : 16), 
           child: TextField(
             decoration: InputDecoration(
               hintText: 'Поиск подписок...',
@@ -250,9 +251,8 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // Горизонтальная полоска с категориями
         Container(
-          height: kIsWeb ? 70 : 60, // Выше для веба
+          height: kIsWeb ? 70 : 60, 
           padding: EdgeInsets.symmetric(
             horizontal: kIsWeb ? 24 : 16,
             vertical: kIsWeb ? 12 : 8,
@@ -294,7 +294,6 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // Статистика (кол-во подписок)
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -312,7 +311,6 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        // Список подписок или сообщение об отсутствии
         Expanded(
           child: filteredSubscriptions.isEmpty
               ? _buildEmptyState(provider)
@@ -338,7 +336,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  // Проверка соответствия категории
+
   bool _matchesCategory(Subscription subscription, String uiCategory) {
     switch (subscription.category) {
       case SubscriptionCategory.music: return uiCategory == 'Музыка';
@@ -352,7 +350,7 @@ Widget build(BuildContext context) {
     }
   }
 
-  // Виджет для пустого состояния
+
   Widget _buildEmptyState(SubscriptionProvider provider) {
     return Center(
       child: Column(

@@ -49,34 +49,27 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<ApiResponse> login(String email, String password) async {
-    _isLoading = true;
+  _isLoading = true;
+  _error = null;
+  notifyListeners();
+
+  final response = await _authService.login(email, password);
+  _isLoading = false;
+
+  if (response.success) {
+    _user = User(
+      id: response.data?['id'] ?? 1,
+      email: email,
+      token: response.data?['access_token'] ?? '', // ← ключ может быть другим
+    );
     _error = null;
     notifyListeners();
-
-    final response = await _authService.login(email, password);
-
-    _isLoading = false;
-
-    if (response.success) {
-      _user = User(
-        id: response.data?['id'] ?? 1,
-        email: email,
-        token: response.data?['token'] ?? 'dummy_token_here',
-      );
-      _error = null;
-
-      // Устанавливаем токен в SubscriptionProvider после успешного логина
-      if (_subscriptionProvider != null) {
-        _subscriptionProvider!.setAuthToken(_user!.token);
-      }
-
-      notifyListeners();
-      return response;
-    } else {
-      _error = response.message;
-      notifyListeners();
-      return response;
-    }
+    return response;
+  } else {
+    _error = response.message;
+    notifyListeners();
+    return response;
+  }
   }
 
   Future<void> logout() async {

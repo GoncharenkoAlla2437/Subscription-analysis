@@ -162,9 +162,7 @@ def get_profile(credentials: HTTPAuthorizationCredentials = Depends(security),
     return {"id": user.id, "email": user.email}
 
 
-# ---------------------------------------
-# 5. Logout
-# ---------------------------------------
+
 @router.post("/logout")
 def logout():
     return {"message": "Logged out (token removed on client side)"}
@@ -176,13 +174,10 @@ def get_me(user: User = Depends(get_current_user)):
 
 @router.post("/test-validation")
 async def test_validation(request: Request):
-    """Тестовый эндпоинт для проверки валидации"""
     try:
-        # Пытаемся получить сырые данные
         raw_data = await request.json()
         print("📦 Raw data received:", raw_data)
 
-        # Пытаемся создать модель
         user = UserRegister(**raw_data)
 
         return {

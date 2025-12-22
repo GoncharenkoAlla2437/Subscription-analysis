@@ -5,25 +5,23 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 
 class AnalyticsService {
-    // Базовый URL API в зависимости от платформы  
+
   String get _baseUrl {
     if (kIsWeb) {
-      // Для web - localhost работает
+
       return 'http://localhost:8000/api';
     } else if (Platform.isAndroid) {
-      // Для Android эмулятора
+
       return 'http://10.0.2.2:8000/api';
     } else {
-      // Для iOS симулятора и реальных устройств
       return 'http://localhost:8000/api';
     }
   }
 
-  final String? _authToken;  // Приватное поле токена авторизации
+  final String? _authToken; 
 
   AnalyticsService({String? authToken}) : _authToken = authToken;
 
-  // Заголовки с авторизацией
   Map<String, String> get _headers {
     final headers = {
       'Content-Type': 'application/json',
@@ -37,7 +35,6 @@ class AnalyticsService {
     return headers;
   }
 
-    // Общий метод для запросов
   Future<Map<String, dynamic>> _makeAnalyticsRequest(
     String endpoint, 
     Map<String, String> params,
@@ -61,7 +58,6 @@ class AnalyticsService {
     }
   }
 
-  // ========== GET: Получить аналитику с распределением по категориям ==========  
   Future<Map<String, dynamic>> getAnalyticsSummary({
     required String period,
     int? month,
@@ -77,8 +73,7 @@ class AnalyticsService {
     
     return await _makeAnalyticsRequest('analytics', params);
   }
-  
-    // ========== GET: Получить аналитику по одной из категорий ==========  
+
   Future<Map<String, dynamic>> getCategoryAnalytics({
     required String category,
     required String period,

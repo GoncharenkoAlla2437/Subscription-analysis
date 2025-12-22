@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Работает с 6.0.5
+import 'package:provider/provider.dart';
 import './screens/login_screen.dart';
 import './screens/register_screen.dart';
 import './screens/subscription_screen.dart';
 import './providers/auth_provider.dart';
+import './providers/subscription_provider.dart'; 
 
 void main() {
   runApp(MyApp());
@@ -14,13 +15,16 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider( // Работает с 6.0.5
+    return MultiProvider(
       providers: [
-        ChangeNotifierProvider( // Работает с 6.0.5
+        ChangeNotifierProvider(
           create: (_) => AuthProvider(),
         ),
+        ChangeNotifierProvider(  
+          create: (_) => SubscriptionProvider(),
+        ),
       ],
-      child: Consumer<AuthProvider>( // Работает с 6.0.5
+      child: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
           return MaterialApp(
             title: 'Subscription App',
@@ -29,6 +33,11 @@ class MyApp extends StatelessWidget {
             ),
             home: _buildHomeScreen(authProvider),
             debugShowCheckedModeBanner: false,
+            routes: {
+              '/login': (context) => LoginScreen(),
+              '/register': (context) => RegisterScreen(),
+              '/subscriptions': (context) => SubscriptionsScreen(),
+            },
           );
         },
       ),
@@ -37,7 +46,7 @@ class MyApp extends StatelessWidget {
 
   Widget _buildHomeScreen(AuthProvider authProvider) {
     if (authProvider.isAuthenticated) {
-      return SubscriptionsScreen(); // Экран подписок
+      return SubscriptionsScreen(); 
     }
     return LoginScreen();
   }
