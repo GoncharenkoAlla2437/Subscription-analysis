@@ -6,21 +6,13 @@ from backend.utils.security import  hash_password, verify_password, create_acces
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2PasswordRequestForm
 from ..schemas.user import UserRegister, UserLogin
 from backend.models.notification import Notification
+from backend.database import get_db
 security = HTTPBearer()
 
 router = APIRouter(
     prefix="/api",
     tags=["auth"]
 )
-
-
-# DB Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 # ---------------------------------------
@@ -88,37 +80,84 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 # ---------------------------------------
 # 2. LOGIN (создание JWT токена)
 # ---------------------------------------
-
 @router.post("/login")
 def login(data: UserLogin, db: Session = Depends(get_db)):
+    print("=" * 60)
+    print(f"🔍 LOGIN ATTEMPT for email: {data.email}")
+    print(f"   Password length: {len(data.password)}")
+
+    # 1. ОЧИСТКА КЕША СЕССИИ
+    db.expire_all()
+    print("   ✅ Session cache cleared")
+
+    # 2. ДИАГНОСТИКА: проверяем ВСЕХ пользователей
+    all_users = db.query(User).all()
+    print(f"   📊 Total users in current session: {len(all_users)}")
+
+    if all_users:
+        for u in all_users:
+            print(f"     - ID: {u.id}, Email: {u.email}")
+    else:
+        print("     ❌ No users found in session!")
+
+    # 3. RAW SQL запрос (обход кеша SQLAlchemy)
+    from sqlalchemy import text
+    try:
+        sql_result = db.execute(
+            text("SELECT id, email, password FROM users WHERE email = :email"),
+            {"email": data.email}
+        ).first()
+
+        if sql_result:
+            print(f"   🔍 User FOUND via raw SQL: ID={sql_result[0]}, Email={sql_result[1]}")
+            print(f"   🔍 Hashed password from SQL: {sql_result[2][:30]}...")
+        else:
+            print(f"   🔍 User NOT FOUND via raw SQL")
+    except Exception as e:
+        print(f"   ⚠️ Raw SQL error: {e}")
+
+    # 4. ORM запрос (может быть закешировано)
     user = db.query(User).filter(User.email == data.email).first()
 
-    if not user or not verify_password(data.password, user.password):
+    if user:
+        print(f"   ✅ User found via ORM: ID={user.id}, Email={user.email}")
+        print(f"   🔑 Hashed password from ORM: {user.password[:30]}...")
+
+        # 5. ПРОВЕРКА ПАРОЛЯ
+        is_password_valid = verify_password(data.password, user.password)
+        print(f"   🔐 Password verification: {is_password_valid}")
+
+        if not is_password_valid:
+            print("   ❌ Password verification FAILED")
+            print("=" * 60)
+            raise HTTPException(status_code=400, detail="Invalid email or password")
+    else:
+        print(f"   ❌ User NOT FOUND via ORM")
+        print("=" * 60)
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    access_token = create_access_token({"user_id": user.id})
-    refresh_token = create_refresh_token({"user_id": user.id})
+    # 6. СОЗДАНИЕ ТОКЕНОВ
+    try:
+        access_token = create_access_token({"user_id": user.id})
+        refresh_token = create_refresh_token({"user_id": user.id})
+
+        print(f"   🎫 Access token created: {access_token[:30]}...")
+        print(f"   🎫 Refresh token created: {refresh_token[:30]}...")
+        print(f"   ✅ LOGIN SUCCESSFUL for user ID: {user.id}")
+
+    except Exception as e:
+        print(f"   ❌ Token creation error: {e}")
+        raise HTTPException(status_code=500, detail="Token creation failed")
+
+    print("=" * 60)
 
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "user_id": user.id,  # ⚠️ ДОБАВЬТЕ это для фронтенда
+        "message": "Login successful"
     }
-
-
-@router.post("/refresh")
-def refresh(refresh_token: str, db: Session = Depends(get_db)):
-    payload = decode_refresh_token(refresh_token)
-
-    if payload is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-
-    new_access_token = create_access_token({"user_id": payload["user_id"]})
-
-    return {"access_token": new_access_token}
-
-
-
 # ---------------------------------------
 # 3. Получение текущего пользователя
 # ---------------------------------------

@@ -1,3 +1,5 @@
+from sys import prefix
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import logging
