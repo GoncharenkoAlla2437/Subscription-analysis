@@ -72,6 +72,43 @@ class SubscriptionService {
     }
   }
 
+  // ========== GET: Получить архивные подписки ==========
+  Future<List<Subscription>> getArchivedSubscriptions({
+    String? category,
+  }) async {
+    try {
+      // Формируем query параметры
+      final params = <String, String>{'archived': 'true'};
+      if (category != null && category != 'Все') {
+        params['category'] = _categoryToApi(category);
+      }
+
+      final uri = Uri.parse('$_baseUrl/subscriptions').replace(queryParameters: params);
+      
+      final response = await http.get(
+        uri,
+        headers: _headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Subscription.fromJson(json)).toList();
+      } else if (response.statusCode == 401) {
+        throw Exception('Неавторизован. Пожалуйста, войдите снова.');
+      } else if (response.statusCode == 404) {
+        // Возможно, эндпоинт не поддерживает archived параметр
+        // В этом случае фильтруем локально
+        throw Exception('Эндпоинт не найден, используется локальная фильтрация');
+      } else {
+        throw Exception('Ошибка загрузки архивных подписок: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Ошибка в getArchivedSubscriptions: $e');
+      // В случае ошибки, возвращаем пустой список
+      return [];
+    }
+  }
+
   // ========== POST: Создать новую подписку ==========
   Future<Subscription> createSubscription(Subscription subscription) async {
   try {

@@ -82,13 +82,13 @@ class AppDrawer extends StatelessWidget {
                 screen: AppScreen.archive,
                 badge: subscriptionProvider.archivedSubscriptions.length,
               ),
-              _buildDrawerItem(
-                context,
-                icon: Icons.person,
-                title: 'Личный кабинет',
-                screen: AppScreen.profile,
-                badge: null,
-              ),
+              // _buildDrawerItem(
+              //   context,
+              //   icon: Icons.person,
+              //   title: 'Личный кабинет',
+              //   screen: AppScreen.profile,
+              //   badge: null,
+              // ),
               _buildDrawerItem(
                 context,
                 icon: Icons.analytics,

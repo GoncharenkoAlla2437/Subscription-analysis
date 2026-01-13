@@ -22,27 +22,34 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
     // Загружаем архивные подписки при инициализации
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<SubscriptionProvider>();
-      if (!provider.hasLoaded) {
-        provider.loadSubscriptions();
+      if (!provider.hasLoadedArchived) {
+        provider.loadArchivedSubscriptions();
       }
     });
   }
 
   void _refreshData() async {
     final provider = context.read<SubscriptionProvider>();
-    await provider.loadSubscriptions(forceRefresh: true);
+    await provider.refreshArchived();
     
-    if (provider.error == null) {
+    if (provider.errorArchived == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Данные обновлены'),
+          content: Text('Архив обновлен'),
           backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.errorArchived!),
+          backgroundColor: Colors.red,
         ),
       );
     }
   }
 
-  // TODO: Реализовать восстановление подписки в будущем
+  // Реализовать восстановление подписки в будущем
   // void _restoreSubscription(String subscriptionId) async {
   //   final provider = context.read<SubscriptionProvider>();
   //   final success = await provider.restoreFromArchive(subscriptionId);
@@ -108,14 +115,14 @@ Widget build(BuildContext context) {
     return Consumer<SubscriptionProvider>(
       builder: (context, provider, child) {
         // Если загрузка и нет данных
-        if (provider.isLoading && !provider.hasLoaded) {
+        if (provider.isLoadingArchived && !provider.hasLoadedArchived) {
           return const Center(
             child: CircularProgressIndicator(),
           );
         }
 
         // Если ошибка
-        if (provider.error != null && !provider.hasLoaded) {
+        if (provider.errorArchived != null && !provider.hasLoadedArchived) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -150,56 +157,49 @@ Widget build(BuildContext context) {
 
         final archivedSubscriptions = provider.archivedSubscriptions;
 
-        return Column(
-          children: [
-            // Статистика архива
-            if (archivedSubscriptions.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Всего в архиве: ${archivedSubscriptions.length}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+      return Column(
+        children: [
+          // Статистика архива
+          if (archivedSubscriptions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Всего в архиве: ${archivedSubscriptions.length}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
-                    Text(
-                      'Сумма: ${_calculateTotal(archivedSubscriptions)} ₽',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-
-            // Список архивных подписок
-            Expanded(
-              child: archivedSubscriptions.isEmpty
-                  ? _buildEmptyState()
-                  : RefreshIndicator(
-                      onRefresh: () async {
-                        await provider.loadSubscriptions(forceRefresh: true);
-                      },
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: archivedSubscriptions.length,
-                        itemBuilder: (context, index) {
-                          final subscription = archivedSubscriptions[index];
-                          return _buildArchivedSubscriptionItem(subscription);
-                        },
-                      ),
-                    ),
             ),
-          ],
-        );
-      },
-    );
-  }
+
+          // Список архивных подписок
+          Expanded(
+            child: archivedSubscriptions.isEmpty
+                ? _buildEmptyState()
+                : RefreshIndicator(
+                    onRefresh: () async {
+                      await provider.refreshArchived();
+                    },
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: archivedSubscriptions.length,
+                      itemBuilder: (context, index) {
+                        final subscription = archivedSubscriptions[index];
+                        return _buildArchivedSubscriptionItem(subscription, context);
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      );
+    },
+  );
+}
 
   Widget _buildEmptyState() {
     return Center(
@@ -233,7 +233,7 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _buildArchivedSubscriptionItem(Subscription subscription) {
+  Widget _buildArchivedSubscriptionItem(Subscription subscription, BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
       elevation: 2,
@@ -287,10 +287,10 @@ Widget build(BuildContext context) {
                   ),
                 ),
                 
-                // TODO: Добавить кнопку восстановления в будущем
+                // Кнопка восстановления
                 // IconButton(
                 //   icon: const Icon(Icons.restore, color: Colors.blue),
-                //   onPressed: () => _restoreSubscription(subscription.id),
+                //   onPressed: () => _restoreSubscription(subscription.id, context),
                 //   tooltip: 'Восстановить подписку',
                 // ),
               ],
@@ -334,6 +334,30 @@ Widget build(BuildContext context) {
       ),
     );
   }
+
+  //   // Метод восстановления (в будущем):
+  // void _restoreSubscription(String subscriptionId, BuildContext context) async {
+  //   final provider = context.read<SubscriptionProvider>();
+  //   final success = await provider.restoreFromArchive(subscriptionId);
+    
+  //   if (success) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('Подписка восстановлена'),
+  //         backgroundColor: Colors.green,
+  //       ),
+  //     );
+  //   } else if (provider.error != null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(provider.error!),
+  //         backgroundColor: Colors.red,
+  //       ),
+  //     );
+  //   }
+  // }
+
+
 
   Widget _buildDetailRow(String label, String value) {
     return Padding(
