@@ -84,10 +84,10 @@ class NotificationGroup {
     );
   }
 
-  // Сортировка уведомлений (новые сверху)
+  // Сортировка уведомлений (новые снизу)
   List<Notification> get sortedNotifications {
     final sorted = List<Notification>.from(notifications);
-    sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return sorted;
   }
 
