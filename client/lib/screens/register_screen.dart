@@ -1,7 +1,9 @@
+// lib/screens/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'login_screen.dart';
+import 'subscription_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -19,6 +21,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isConfirmPasswordVisible = false;
 
   @override
+  void initState() {
+    super.initState();
+    // ✅ Проверяем сразу, если пользователь уже авторизован
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfAlreadyAuthenticated();
+    });
+  }
+
+  void _checkIfAlreadyAuthenticated() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isAuthenticated) {
+      print('✅ Пользователь уже авторизован, перенаправляю...');
+      _redirectToSubscriptions();
+    }
+  }
+
+  void _redirectToSubscriptions() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => SubscriptionsScreen()),
+      (route) => false,
+    );
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -28,7 +55,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
-
+    
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -40,16 +67,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    print('🔄 Выполняю регистрацию...');
     await authProvider.register(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
+    
+    // ✅ НЕМЕДЛЕННАЯ ПРОВЕРКА И ПЕРЕНАПРАВЛЕНИЕ
+    if (authProvider.isAuthenticated) {
+      print('✅ Регистрация и вход успешны! Перенаправляю немедленно...');
+      _redirectToSubscriptions();
+    } else {
+      print('❌ Регистрация не удалась: ${authProvider.error}');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-
+    
+    // ✅ СЛУШАТЕЛЬ ИЗМЕНЕНИЙ - если isAuthenticated стал true, перенаправляем
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (authProvider.isAuthenticated) {
+        print('🎯 Auth state changed to authenticated, redirecting...');
+        _redirectToSubscriptions();
+      }
+    });
+    
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(

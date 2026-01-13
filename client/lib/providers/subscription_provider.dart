@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/subscription.dart';
 import '../services/subscription_service.dart';
+import 'auth_provider.dart';
 
 class SubscriptionProvider extends ChangeNotifier {
   // Состояние
@@ -31,9 +32,17 @@ class SubscriptionProvider extends ChangeNotifier {
     _subscriptionService = SubscriptionService(authToken: token);
   }
 
+  void clearData() {
+    _subscriptions.clear(); // или _subscriptions = [];
+    _hasLoaded = false;
+    _authToken = null;
+    _error = null;
+    notifyListeners();
+  }
+  
   Future<void> loadSubscriptions({bool forceRefresh = false}) async {
     if (_isLoading || (_hasLoaded && !forceRefresh)) return;
-
+    
     _isLoading = true;
     _error = null;
     notifyListeners();
