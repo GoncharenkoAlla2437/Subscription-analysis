@@ -16,6 +16,7 @@ from backend.schemas.sub import (
     SubPeriodEnum
 )
 from backend.routes.auth import get_current_user
+from backend.services.notifications_service import NotificationService
 
 router = APIRouter()
 router = APIRouter(prefix="/api", tags=["subscriptions"])
@@ -24,12 +25,16 @@ router = APIRouter(prefix="/api", tags=["subscriptions"])
              status_code=status.HTTP_201_CREATED,
              summary="Создать подписку",
              description="При создании подписки автоматически добавляется первая запись в историю цен")
+@router.post("/subscriptions",
+             response_model=SubscriptionWithPriceHistory,
+             status_code=status.HTTP_201_CREATED,
+             summary="Создать подписку",
+             description="При создании подписки автоматически добавляется первая запись в историю цен и создается уведомление")
 def create_subscription(
-    subscription_data: CreateSubscriptionRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+        subscription_data: CreateSubscriptionRequest,
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
-
     print("=" * 50)
     print("✅ CreateSubscriptionRequest model successfully validated!")
     print(f"   User ID: {current_user.id}")
@@ -38,18 +43,18 @@ def create_subscription(
     print(f"   Amount: {subscription_data.currentAmount}")
     print(f"   Billing cycle: {subscription_data.billingCycle}")
     print("=" * 50)
-    
-    # Проверяем уникальность имени подписки (глобально, так как unique=True)
+
+    # Проверяем уникальность имени подписки
     existing_subscription = db.query(Subscription).filter(
         Subscription.name == subscription_data.name
     ).first()
-    
+
     if existing_subscription:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Subscription with this name already exists"
         )
-    
+
     # Валидация дат
     today = date.today()
     if subscription_data.nextPaymentDate and subscription_data.nextPaymentDate < today:
@@ -57,13 +62,13 @@ def create_subscription(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Next payment date cannot be in the past"
         )
-    
+
     if subscription_data.connectedDate and subscription_data.connectedDate > today:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Connection date cannot be in the future"
         )
-    
+
     # Проверяем notifyDays в допустимом диапазоне
     notify_days = subscription_data.notifyDays or 3
     if notify_days < 1 or notify_days > 30:
@@ -71,11 +76,14 @@ def create_subscription(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Notify days must be between 1 and 30"
         )
-    
+
     # Конвертируем Enum в строки для базы данных
-    category_str = subscription_data.category.value if isinstance(subscription_data.category, SubCategoryEnum) else str(subscription_data.category)
-    billing_cycle_str = subscription_data.billingCycle.value if isinstance(subscription_data.billingCycle, SubPeriodEnum) else str(subscription_data.billingCycle)
-    
+    category_str = subscription_data.category.value if isinstance(subscription_data.category, SubCategoryEnum) else str(
+        subscription_data.category)
+    billing_cycle_str = subscription_data.billingCycle.value if isinstance(subscription_data.billingCycle,
+                                                                           SubPeriodEnum) else str(
+        subscription_data.billingCycle)
+
     # Создаем новую подписку
     new_subscription = Subscription(
         userId=current_user.id,
@@ -92,13 +100,15 @@ def create_subscription(
         createdAt=datetime.utcnow(),
         updatedAt=datetime.utcnow()
     )
-    
+
     try:
         db.add(new_subscription)
         db.commit()
-        # db.refresh(new_subscription)
-        
-        # Автоматически создаем первую запись в истории цен
+        db.refresh(new_subscription)
+
+        print(f"✅ Подписка создана с ID: {new_subscription.id}")
+
+        # 1. Создаем первую запись в истории цен
         price_history_item = None
         if new_subscription.currentAmount > 0:
             new_price_history = PriceHistory(
@@ -108,13 +118,26 @@ def create_subscription(
                 createdAt=datetime.utcnow()
             )
             db.add(new_price_history)
-            db.commit()
-            db.refresh(new_price_history)
             price_history_item = new_price_history
-        
+
+        # 2. ✅ СОЗДАЕМ УВЕДОМЛЕНИЕ О ПОДКЛЮЧЕНИИ
+        print(f"📨 Создаю уведомление для подписки {new_subscription.id}...")
+        NotificationService.for_subscription_created(
+            db=db,
+            user_id=str(current_user.id),
+            subscription_id=new_subscription.id,
+            subscription_name=new_subscription.name,
+            amount=new_subscription.currentAmount,
+            next_payment_date=new_subscription.nextPaymentDate
+        )
+        print("✅ Уведомление создано!")
+
+        db.commit()
+
         # Создаем ответ
         price_history_list = []
         if price_history_item:
+            db.refresh(price_history_item)
             price_history_list.append(
                 PriceHistoryItem(
                     id=price_history_item.id,
@@ -123,7 +146,7 @@ def create_subscription(
                     createdAt=price_history_item.createdAt
                 )
             )
-        
+
         response = SubscriptionWithPriceHistory(
             id=new_subscription.id,
             userId=new_subscription.userId,
@@ -141,16 +164,15 @@ def create_subscription(
             updatedAt=new_subscription.updatedAt,
             priceHistory=price_history_list
         )
-        
+
         return response
-        
+
     except Exception as e:
         db.rollback()
-        # Логируем ошибку
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error creating subscription: {str(e)}")
-        
+        print(f"❌ Ошибка при создании подписки: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Subscription creation failed, please try again"

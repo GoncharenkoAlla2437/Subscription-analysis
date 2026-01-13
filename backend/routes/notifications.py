@@ -1,182 +1,228 @@
-from backend.routes.auth import get_current_user
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from typing import List
+# backend/routes/notification.py
+from datetime import datetime
+from typing import List, Optional, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 
 from backend.database import get_db
-from backend.schemas.notification import NotificationResponse, ReadAllResponse
-
+from backend.routes.auth import get_current_user
+from backend.schemas.notification import NotificationResponse
+from backend.models.notification import Notification
+from backend.models.subscription import Subscription
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 
-@router.get("/", response_model=List[NotificationResponse])
-async def get_user_notifications(
-        unread_only: bool = Query(False, description="Только непрочитанные уведомления"),
-        limit: int = Query(50, ge=1, le=100, description="Лимит записей"),
-        offset: int = Query(0, ge=0, description="Смещение для пагинации"),
-        current_user=Depends(get_current_user),  # ← УБЕРИ : User
+@router.get("/grouped")
+async def get_notifications_grouped_by_subscription(
+        current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """
-    Получить уведомления пользователя
+    Главный endpoint: получить уведомления, сгруппированные как чаты
+    Используется для главного экрана со списком подписок
     """
-    from backend.models.notification import Notification
-
-    query = db.query(Notification).filter(
+    # Получаем все уведомления пользователя
+    notifications = db.query(Notification).filter(
         Notification.user_id == str(current_user.id)
-    )
+    ).order_by(desc(Notification.created_at)).all()
 
-    if unread_only:
-        query = query.filter(Notification.read == False)
+    # Получаем все подписки пользователя
+    subscriptions = db.query(Subscription).filter(
+        Subscription.userId == str(current_user.id)
+    ).all()
 
-    notifications = query.order_by(
-        desc(Notification.created_at)
-    ).offset(offset).limit(limit).all()
+    # Создаем словарь для быстрого доступа к подпискам
+    sub_dict = {sub.id: sub for sub in subscriptions}
 
-    return notifications
+    # Группируем уведомления по subscription_id
+    grouped = {}
+    for notification in notifications:
+        sub_id = notification.subscription_id
+
+        # Если подписка не найдена (архивированная), пропускаем
+        if sub_id not in sub_dict:
+            continue
+
+        subscription = sub_dict[sub_id]
+
+        # Создаем группу если ее еще нет
+        if sub_id not in grouped:
+            grouped[sub_id] = {
+                "subscription_id": sub_id,
+                "subscription_name": subscription.name,
+                "subscription_amount": float(subscription.currentAmount),
+                "subscription_category": subscription.category,
+                "notifications": [],
+                "unread_count": 0,
+                "last_notification_date": None
+            }
+
+        # Добавляем уведомление в группу
+        notification_data = {
+            "id": notification.id,
+            "type": notification.type,
+            "title": notification.title,
+            "message": notification.message,
+            "read": notification.read,
+            "created_at": notification.created_at.isoformat() if notification.created_at else None
+        }
+
+        grouped[sub_id]["notifications"].append(notification_data)
+
+        # Считаем непрочитанные
+        if not notification.read:
+            grouped[sub_id]["unread_count"] += 1
+
+        # Обновляем дату последнего уведомления
+        if (not grouped[sub_id]["last_notification_date"] or
+                notification.created_at > grouped[sub_id]["last_notification_date"]):
+            grouped[sub_id]["last_notification_date"] = notification.created_at
+
+    # Преобразуем словарь в список
+    result = []
+    for sub_id, data in grouped.items():
+        # Сортируем уведомления внутри группы (новые сверху)
+        data["notifications"].sort(key=lambda x: x["created_at"], reverse=True)
+
+        # Преобразуем datetime в строку
+        if data["last_notification_date"]:
+            data["last_notification_date"] = data["last_notification_date"].isoformat()
+
+        result.append(data)
+
+    # Сортируем группы по дате последнего уведомления (новые сверху)
+    result.sort(key=lambda x: x["last_notification_date"] or "", reverse=True)
+
+    return result
 
 
-@router.patch("/{notification_id}/read", response_model=NotificationResponse)
-async def mark_notification_as_read(
-        notification_id: str,
-        current_user=Depends(get_current_user),  # ← УБЕРИ : User
+@router.get("/subscription/{subscription_id}")
+async def get_subscription_notifications(
+        subscription_id: int,
+        current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """
-    Пометить уведомление как прочитанное
+    Получить все уведомления конкретной подписки
+    Используется при открытии "чата" с подпиской
     """
-    from backend.models.notification import Notification
-
-    notification = db.query(Notification).filter(
+    # Проверяем, существует ли подписка у пользователя
+    subscription = db.query(Subscription).filter(
         and_(
-            Notification.id == notification_id,
-            Notification.user_id == str(current_user.id)
+            Subscription.id == subscription_id,
+            Subscription.userId == str(current_user.id)
         )
     ).first()
 
-    if not notification:
+    if not subscription:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Уведомление не найдено"
+            detail="Подписка не найдена"
         )
 
-    notification.read = True
-    db.commit()
-    db.refresh(notification)
+    # Получаем все уведомления для этой подписки
+    notifications = db.query(Notification).filter(
+        and_(
+            Notification.user_id == str(current_user.id),
+            Notification.subscription_id == subscription_id
+        )
+    ).order_by(desc(Notification.created_at)).all()
 
-    return notification
+    # Используем существующую схему
+    notification_responses = [NotificationResponse.from_orm(n) for n in notifications]
+
+    return {
+        "subscription": {
+            "id": subscription.id,
+            "name": subscription.name,
+            "amount": float(subscription.currentAmount),
+            "category": subscription.category
+        },
+        "notifications": notification_responses,
+        "total_count": len(notifications),
+        "unread_count": len([n for n in notifications if not n.read])
+    }
 
 
-@router.post("/read-all", response_model=ReadAllResponse)
-async def mark_all_notifications_as_read(
-        current_user=Depends(get_current_user),  # ← УБЕРИ : User
+@router.post("/subscription/{subscription_id}/read-all")
+async def mark_subscription_notifications_read(
+        subscription_id: int,
+        current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """
-    Пометить все уведомления как прочитанные
+    Пометить ВСЕ уведомления конкретной подписки как прочитанные
+    Вызывается при открытии окна переписки с подпиской
     """
-    from backend.models.notification import Notification
+    # Проверяем, существует ли подписка у пользователя
+    subscription = db.query(Subscription).filter(
+        and_(
+            Subscription.id == subscription_id,
+            Subscription.userId == str(current_user.id)
+        )
+    ).first()
 
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Подписка не найдена"
+        )
+
+    # Помечаем все уведомления этой подписки как прочитанные
     result = db.query(Notification).filter(
         and_(
             Notification.user_id == str(current_user.id),
+            Notification.subscription_id == subscription_id,
             Notification.read == False
         )
-    ).update(
-        {"read": True},
-        synchronize_session=False
-    )
+    ).update({"read": True})
 
     db.commit()
 
-    return ReadAllResponse(
-        message="Все уведомления помечены как прочитанные",
-        count=result
-    )
+    return {
+        "message": f"Все уведомления по подписке '{subscription.name}' помечены как прочитанные",
+        "subscription_id": subscription_id,
+        "subscription_name": subscription.name,
+        "count": result
+    }
 
 
-@router.get("/unread-count")
-async def get_unread_count(
-        current_user=Depends(get_current_user),  # ← УБЕРИ : User
+@router.get("/subscription/{subscription_id}/unread-count")
+async def get_subscription_unread_count(
+        subscription_id: int,
+        current_user=Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
     """
-    Получить количество непрочитанных уведомлений
+    Получить количество непрочитанных уведомлений для конкретной подписки
+    Используется для обновления бейджей в фоне
     """
-    from backend.models.notification import Notification
+    # Проверяем, что подписка принадлежит пользователю
+    subscription = db.query(Subscription).filter(
+        and_(
+            Subscription.id == subscription_id,
+            Subscription.userId == str(current_user.id)
+        )
+    ).first()
+
+    if not subscription:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Подписка не найдена"
+        )
 
     count = db.query(Notification).filter(
         and_(
             Notification.user_id == str(current_user.id),
+            Notification.subscription_id == subscription_id,
             Notification.read == False
         )
     ).count()
 
-    return {"unread_count": count}
-
-
-# routes/notifications.py (добавить для тестов)
-@router.post("/generate-reminders")
-async def generate_reminders(
-        current_user=Depends(get_current_user),
-        db: Session = Depends(get_db)
-):
-    """Вручную запустить генерацию уведомлений (для теста)"""
-    from backend.services.not_generator import generate_payment_reminders
-
-    count = generate_payment_reminders(db)
-
     return {
-        "message": f"Создано {count} уведомлений",
-        "count": count
-    }
-
-
-# routes/notifications.py (добавь)
-@router.get("/debug/all")
-async def get_all_notifications_debug(
-        db: Session = Depends(get_db)
-):
-    """Получить ВСЕ уведомления из БД (для отладки)"""
-    from backend.models.notification import Notification
-    from sqlalchemy import text
-
-    # 1. Просто все записи
-    notifications = db.query(Notification).all()
-
-    # 2. Сырой SQL для полной информации
-    result = db.execute(text("""
-        SELECT 
-            n.*,
-            s.name as subscription_name,
-            s.nextPaymentDate as sub_next_payment,
-            s.notifyDays as sub_notify_days
-        FROM notifications n
-        LEFT JOIN subscriptions s ON n.subscription_id = s.id
-        ORDER BY n.created_at DESC
-    """))
-
-    raw_data = result.fetchall()
-
-    return {
-        "orm_count": len(notifications),
-        "raw_count": len(raw_data),
-        "notifications": [
-            {
-                "id": n.id[:8] + "...",  # сокращенный ID
-                "user_id": n.user_id,
-                "subscription_id": n.subscription_id,
-                "title": n.title,
-                "message": n.message,
-                "scheduled_date": n.scheduled_date.isoformat() if n.scheduled_date else None,
-                "read": n.read,
-                "created_at": n.created_at.isoformat() if n.created_at else None
-            }
-            for n in notifications
-        ],
-        "raw_data": [
-            dict(row._mapping) for row in raw_data
-        ]
+        "subscription_id": subscription_id,
+        "subscription_name": subscription.name,
+        "unread_count": count
     }

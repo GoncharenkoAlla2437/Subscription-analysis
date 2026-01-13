@@ -1,5 +1,4 @@
 from sys import prefix
-
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import logging
@@ -7,11 +6,16 @@ from sqlalchemy.orm import Session
 from backend.routes.auth import router as auth_router
 from backend.routes.subs import router as subs_router
 from backend.routes.notifications import router as notifications_router
+import backend.database
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+# ИЗМЕНЕНИЕ 1: Добавить название и docs (2 строки)
+app = FastAPI(
+    title="Subscription Analyzer API",
+    docs_url="/docs"
+)
 
 app.add_middleware(
     CORSMiddleware,

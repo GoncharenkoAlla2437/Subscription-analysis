@@ -13,8 +13,11 @@ router = APIRouter(
     prefix="/api",
     tags=["auth"]
 )
-
-
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 часа (1440 минут)
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+SECRET_KEY =  'af1684b7f8df00a7d0abf58e3ac0c5d905cf804885b329e9ed08571b44204869'  # для access токенов
+REFRESH_SECRET_KEY =  '9ad70b9831981bb6564e94c7b79e2756fe7d0a795b712acd4facbc6157b83cba'  # для refresh токенов
+ALGORITHM = "HS256"
 # ---------------------------------------
 # 1. REGISTER (регистрация)
 # ---------------------------------------
@@ -136,13 +139,23 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
         print("=" * 60)
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    # 6. СОЗДАНИЕ ТОКЕНОВ
+    # 6. СОЗДАНИЕ ТОКЕНОВ (ИСПРАВЛЕННАЯ ЧАСТЬ)
     try:
-        access_token = create_access_token({"user_id": user.id})
-        refresh_token = create_refresh_token({"user_id": user.id})
+        # Указываем время жизни для access токена (24 часа)
+        access_token = create_access_token(
+            data={"user_id": user.id},
+            expires_minutes=ACCESS_TOKEN_EXPIRE_MINUTES  # ← ПЕРЕДАЁМ ВРЕМЯ ЖИЗНИ
+        )
+
+        # Указываем время жизни для refresh токена (7 дней)
+        refresh_token = create_refresh_token(
+            data={"user_id": user.id, "type": "refresh"},
+            expires_days=REFRESH_TOKEN_EXPIRE_DAYS  # ← ДЛЯ REFRESH ТОКЕНА
+        )
 
         print(f"   🎫 Access token created: {access_token[:30]}...")
-        print(f"   🎫 Refresh token created: {refresh_token[:30]}...")
+        print(f"   🎫 Token expires in: {ACCESS_TOKEN_EXPIRE_MINUTES} minutes")
+        print(f"   🎫 Refresh token expires in: {REFRESH_TOKEN_EXPIRE_DAYS} minutes")
         print(f"   ✅ LOGIN SUCCESSFUL for user ID: {user.id}")
 
     except Exception as e:
@@ -155,10 +168,13 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "user_id": user.id,  # ⚠️ ДОБАВЬТЕ это для фронтенда
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # в секундах для фронтенда
+        "user_id": user.id,
         "message": "Login successful"
     }
-# ---------------------------------------
+
+
+# -----------------------------
 # 3. Получение текущего пользователя
 # ---------------------------------------
 def get_current_user(
