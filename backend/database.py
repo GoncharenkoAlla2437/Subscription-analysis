@@ -36,7 +36,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-# # Автоматически создаем таблицы при импорте модуля
-# init_db()

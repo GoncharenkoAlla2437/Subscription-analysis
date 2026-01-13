@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from backend.routes.auth import router as auth_router
 from backend.routes.subs import router as subs_router
 from backend.routes.notifications import router as notifications_router
+from backend.routes.analytics import router as analytics_router
 import backend.database
 from backend.database import init_db
 
@@ -31,6 +32,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(subs_router)
 app.include_router(notifications_router)
+app.include_router(analytics_router) 
 
 @app.get("/")
 async def root():
