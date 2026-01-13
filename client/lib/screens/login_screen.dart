@@ -1,7 +1,9 @@
+// lib/screens/login_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'register_screen.dart';
+import 'subscription_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -17,6 +19,31 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isPasswordVisible = false;
 
   @override
+  void initState() {
+    super.initState();
+    // ✅ Проверяем сразу, если пользователь уже авторизован
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfAlreadyAuthenticated();
+    });
+  }
+
+  void _checkIfAlreadyAuthenticated() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isAuthenticated) {
+      print('✅ Пользователь уже авторизован, перенаправляю...');
+      _redirectToSubscriptions();
+    }
+  }
+
+  void _redirectToSubscriptions() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => SubscriptionsScreen()),
+      (route) => false, // Удаляем все предыдущие маршруты
+    );
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
@@ -25,18 +52,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
+    
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    print('🔄 Выполняю вход...');
     await authProvider.login(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
+    
+    // ✅ НЕМЕДЛЕННАЯ ПРОВЕРКА И ПЕРЕНАПРАВЛЕНИЕ
+    if (authProvider.isAuthenticated) {
+      print('✅ Вход успешен! Перенаправляю немедленно...');
+      _redirectToSubscriptions();
+    } else {
+      print('❌ Вход не удался: ${authProvider.error}');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-
+    
+    // ✅ СЛУШАТЕЛЬ ИЗМЕНЕНИЙ - если isAuthenticated стал true, перенаправляем
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (authProvider.isAuthenticated) {
+        print('🎯 Auth state changed to authenticated, redirecting...');
+        _redirectToSubscriptions();
+      }
+    });
+    
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(

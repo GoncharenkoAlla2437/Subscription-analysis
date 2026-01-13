@@ -45,6 +45,8 @@ class AuthService {
 
   Future<ApiResponse> login(String email, String password) async {
     try {
+      print('🔐 Login attempt for: $email');
+      
       final response = await http.post(
         Uri.parse('$baseUrl/api/login'),
         headers: {
@@ -57,9 +59,17 @@ class AuthService {
         }),
       );
 
-      final data = json.decode(response.body);
+      print('📊 Login status: ${response.statusCode}');
+      print('📦 Login response body: ${response.body}');
 
+      final data = json.decode(response.body);
+      
       if (response.statusCode == 200) {
+        // ✅ Проверяем наличие токена в ответе
+        if (data['access_token'] == null) {
+          print('⚠️ Warning: access_token missing in response');
+        }
+        
         return ApiResponse(
           success: true,
           message: data['message'] ?? 'Login successful',
@@ -72,10 +82,11 @@ class AuthService {
         );
       }
     } catch (e) {
+      print('❌ Login error: $e');
       return ApiResponse(
         success: false,
-        message: 'Network error. Please check your connection.',
+        message: 'Network error: $e',
       );
     }
   }
-}
+} // ✅ ДОБАВЬТЕ ЭТУ ЗАКРЫВАЮЩУЮ СКОБКУ

@@ -27,15 +27,32 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     super.initState();
     // Загружаем подписки при инициализации экрана
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = context.read<SubscriptionProvider>();
-      if (!provider.hasLoaded) {
-        provider.loadSubscriptions();
+      final authProvider = context.read<AuthProvider>();
+      final subscriptionProvider = context.read<SubscriptionProvider>();
+      
+      // ✅ Изменили проверку: используем isAuthenticated вместо user?.token
+      if (authProvider.isAuthenticated && authProvider.token != null) {
+        // Передаем токен в SubscriptionProvider если нужно
+        if (subscriptionProvider.authToken == null) {
+          subscriptionProvider.setAuthToken(authProvider.token!);
+        }
+        
+        if (!subscriptionProvider.hasLoaded) {
+          subscriptionProvider.loadSubscriptions();
+        }
       }
     });
   }
 
   // Функция для показа модального окна добавления подписки
   void _showAddSubscriptionModal() async {
+    // ✅ Проверяем авторизацию
+    final authProvider = context.read<AuthProvider>();
+    if (!authProvider.isAuthenticated) {
+      _showErrorSnackBar('Пожалуйста, войдите в систему');
+      return;
+    }
+
     final subscriptionProvider = context.read<SubscriptionProvider>();
     
     // Показываем модальное окно
@@ -60,6 +77,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   // Функция обновления подписки
   void _updateSubscription(Subscription updatedSubscription) async {
+    // ✅ Проверяем авторизацию
+    final authProvider = context.read<AuthProvider>();
+    if (!authProvider.isAuthenticated) {
+      _showErrorSnackBar('Пожалуйста, войдите в систему');
+      return;
+    }
+
     final provider = context.read<SubscriptionProvider>();
     final result = await provider.updateSubscription(updatedSubscription);
     
@@ -72,6 +96,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   // Функция архивации подписки
   void _archiveSubscription(String subscriptionId) async {
+    // ✅ Проверяем авторизацию
+    final authProvider = context.read<AuthProvider>();
+    if (!authProvider.isAuthenticated) {
+      _showErrorSnackBar('Пожалуйста, войдите в систему');
+      return;
+    }
+
     final provider = context.read<SubscriptionProvider>();
     final success = await provider.archiveSubscription(subscriptionId);
     
@@ -84,6 +115,13 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   // Функция для обновления (перезагрузки) данных
   void _refreshData() async {
+    // ✅ Проверяем авторизацию
+    final authProvider = context.read<AuthProvider>();
+    if (!authProvider.isAuthenticated) {
+      _showErrorSnackBar('Пожалуйста, войдите в систему');
+      return;
+    }
+
     final provider = context.read<SubscriptionProvider>();
     await provider.loadSubscriptions(forceRefresh: true);
     
@@ -115,70 +153,163 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
 
   @override
 Widget build(BuildContext context) {
-  final authProvider = context.read<AuthProvider>();
-  final subscriptionProvider = context.read<SubscriptionProvider>();
+  final authProvider = context.watch<AuthProvider>();
+  final subscriptionProvider = context.watch<SubscriptionProvider>();
 
-  if (authProvider.user?.token != null && 
-      subscriptionProvider.authToken == null) {
+  // 🔥 КРИТИЧЕСКО ВАЖНО: Очищаем данные при logout
+  if (!authProvider.isAuthenticated && subscriptionProvider.hasLoaded) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      subscriptionProvider.setAuthToken(authProvider.user!.token);
-      subscriptionProvider.loadSubscriptions();
+      subscriptionProvider.clearData();
     });
+  }
+
+  // 🔥 Проверяем смену пользователя по токену
+  if (authProvider.isAuthenticated && authProvider.token != null) {
+    if (subscriptionProvider.authToken != authProvider.token) {
+      // Токен изменился - значит другой пользователь
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        subscriptionProvider.clearData();
+        subscriptionProvider.setAuthToken(authProvider.token!);
+        subscriptionProvider.loadSubscriptions();
+      });
+    } else if (!subscriptionProvider.hasLoaded) {
+      // Первая загрузка для этого пользователя
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        subscriptionProvider.loadSubscriptions();
+      });
+    }
   }
 
   return Scaffold(
     key: _scaffoldKey,
     backgroundColor: Color.fromARGB(248, 223, 218, 245),
     appBar: AppBar(
-      title: Text('Мои подписки'),
+      title: Text(
+        // ✅ Используем userEmail или заголовок по умолчанию
+        authProvider.isAuthenticated && authProvider.userEmail != null
+            ? 'Подписки: ${authProvider.userEmail}'
+            : 'Мои подписки'
+      ),
       backgroundColor: Colors.white,
       foregroundColor: Colors.black,
       elevation: 0,
       actions: [
-        IconButton(
-          icon: Icon(Icons.refresh, color: Colors.black),
-          onPressed: subscriptionProvider.isLoading ? null : _refreshData,
-        ),
+        // ✅ Показываем кнопку обновления только если авторизованы
+        if (authProvider.isAuthenticated) 
+          IconButton(
+            icon: Icon(Icons.refresh, color: Colors.black),
+            onPressed: subscriptionProvider.isLoading ? null : _refreshData,
+          ),
         if (!kIsWeb) IconButton(
           icon: Icon(Icons.menu, color: Colors.black),
           onPressed: () {
             _scaffoldKey.currentState!.openEndDrawer();
           },
         ),
+        // ✅ Добавляем кнопку входа/выхода
+        IconButton(
+          icon: Icon(
+            authProvider.isAuthenticated ? Icons.logout : Icons.login,
+            color: Colors.black,
+          ),
+          onPressed: () {
+            if (authProvider.isAuthenticated) {
+              authProvider.logout();
+            } else {
+              Navigator.pushNamed(context, '/login');
+            }
+          },
+        ),
       ],
     ),
     
-    endDrawer: kIsWeb ? null :  const AppDrawer(
+    endDrawer: kIsWeb ? null : const AppDrawer(
       currentScreen: AppScreen.subscriptions,
       isMobile: true,
     ),
     
-    body: kIsWeb 
-      ? Row(
-          children: [
-            const AppDrawer(
-              currentScreen: AppScreen.subscriptions,
-              isMobile: false,
-            ),
-            Expanded(
-              child: _buildBody(subscriptionProvider),
-            ),
-          ],
-        )
-      : _buildBody(subscriptionProvider),
+    body: _buildMainContent(authProvider, subscriptionProvider),
     
-    floatingActionButton: FloatingActionButton(
-      onPressed: _showAddSubscriptionModal,
-      backgroundColor: Colors.blue,
-      child: const Icon(Icons.add, color: Colors.white, size: 28),
-    ),
+    floatingActionButton: _buildFloatingActionButton(authProvider),
     floatingActionButtonLocation: kIsWeb
       ? FloatingActionButtonLocation.endFloat
       : FloatingActionButtonLocation.centerFloat,
   );
 }
 
-  Widget _buildBody(SubscriptionProvider provider) {
+  // ✅ Вынесли основной контент в отдельный метод
+  Widget _buildMainContent(AuthProvider authProvider, SubscriptionProvider subscriptionProvider) {
+    if (!authProvider.isAuthenticated) {
+      return _buildUnauthenticatedContent();
+    }
+
+    if (kIsWeb) {
+      return Row(
+        children: [
+          const AppDrawer(
+            currentScreen: AppScreen.subscriptions,
+            isMobile: false,
+          ),
+          Expanded(
+            child: _buildSubscriptionContent(subscriptionProvider),
+          ),
+        ],
+      );
+    } else {
+      return _buildSubscriptionContent(subscriptionProvider);
+    }
+  }
+
+  // ✅ Контент для неавторизованных пользователей
+  Widget _buildUnauthenticatedContent() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.login, size: 80, color: Colors.grey[400]),
+          SizedBox(height: 20),
+          Text(
+            'Войдите в систему',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[600],
+            ),
+          ),
+          SizedBox(height: 10),
+          Text(
+            'Для просмотра подписок требуется авторизация',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 30),
+          ElevatedButton.icon(
+            icon: Icon(Icons.login),
+            label: Text('Войти'),
+            onPressed: () {
+              Navigator.pushNamed(context, '/login');
+            },
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+            ),
+          ),
+          SizedBox(height: 15),
+          TextButton(
+            child: Text('Зарегистрироваться'),
+            onPressed: () {
+              Navigator.pushNamed(context, '/register');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Контент с подписками
+  Widget _buildSubscriptionContent(SubscriptionProvider provider) {
     if (provider.isLoading && !provider.hasLoaded) {
       return Center(
         child: CircularProgressIndicator(),
@@ -336,6 +467,18 @@ Widget build(BuildContext context) {
     );
   }
 
+  // ✅ FAB с проверкой авторизации
+  Widget _buildFloatingActionButton(AuthProvider authProvider) {
+    if (!authProvider.isAuthenticated) {
+      return SizedBox.shrink(); // Не показываем FAB если не авторизован
+    }
+
+    return FloatingActionButton(
+      onPressed: _showAddSubscriptionModal,
+      backgroundColor: Colors.blue,
+      child: const Icon(Icons.add, color: Colors.white, size: 28),
+    );
+  }
 
   bool _matchesCategory(Subscription subscription, String uiCategory) {
     switch (subscription.category) {
@@ -349,7 +492,6 @@ Widget build(BuildContext context) {
       default: return false;
     }
   }
-
 
   Widget _buildEmptyState(SubscriptionProvider provider) {
     return Center(
@@ -397,8 +539,7 @@ Widget build(BuildContext context) {
                 },
               ),
             ),
-        ]
-        ,
+        ],
       ),
     );
   }

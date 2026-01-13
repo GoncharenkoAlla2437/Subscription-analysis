@@ -134,7 +134,8 @@ class AppDrawer extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            authProvider.user?.email ?? 'Пользователь',
+            // ✅ Изменено: authProvider.userEmail вместо authProvider.user?.email
+            authProvider.userEmail ?? 'Пользователь',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -143,7 +144,12 @@ class AppDrawer extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            authProvider.isAuthenticated ? 'Аккаунт активен' : 'Не авторизован',
+            // ✅ Изменено: более понятный статус
+            authProvider.isAuthenticated 
+                ? authProvider.userEmail != null 
+                    ? 'Аккаунт активен' 
+                    : 'Вход выполнен'
+                : 'Не авторизован',
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 12,
@@ -192,17 +198,37 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildLogoutItem(BuildContext context) {
+    final authProvider = context.read<AuthProvider>();
+    
     return ListTile(
-      leading: const Icon(Icons.exit_to_app, color: Colors.grey),
-      title: const Text(
-        'Выйти',
-        style: TextStyle(fontSize: 16),
+      leading: Icon(
+        Icons.exit_to_app, 
+        color: authProvider.isAuthenticated ? Colors.grey : Colors.grey[300],
       ),
-      onTap: () => _showLogoutDialog(context),
+      title: Text(
+        'Выйти',
+        style: TextStyle(
+          fontSize: 16,
+          color: authProvider.isAuthenticated ? Colors.black : Colors.grey[300],
+        ),
+      ),
+      onTap: authProvider.isAuthenticated 
+          ? () => _showLogoutDialog(context)
+          : null,
     );
   }
 
   void _navigateToScreen(BuildContext context, AppScreen screen) {
+    final authProvider = context.read<AuthProvider>();
+    
+    // Проверяем авторизацию для защищенных экранов
+    if (!authProvider.isAuthenticated && 
+        screen != AppScreen.subscriptions && 
+        screen != AppScreen.profile) {
+      _showAuthRequiredDialog(context);
+      return;
+    }
+
     // Закрываем drawer на мобильных
     if (isMobile) {
       Navigator.pop(context);
@@ -246,6 +272,31 @@ class AppDrawer extends StatelessWidget {
     }
   }
 
+  void _showAuthRequiredDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Требуется вход'),
+          content: const Text('Для доступа к этому разделу необходимо войти в систему.'),
+          actions: [
+            TextButton(
+              child: const Text('Отмена'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Войти'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.pushNamed(context, '/login');
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showLogoutDialog(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
@@ -265,6 +316,15 @@ class AppDrawer extends StatelessWidget {
               onPressed: () {
                 Navigator.of(context).pop();
                 authProvider.logout();
+                // Закрываем drawer если открыт
+                if (isMobile) {
+                  Navigator.pop(context);
+                }
+                // Перенаправляем на экран подписок
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => SubscriptionsScreen()),
+                );
               },
             ),
           ],
